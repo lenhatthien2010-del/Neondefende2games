@@ -3,8 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Neon Defense - Storm Sword Edition</title>
+    <title>Neon Defense - Online Multiplayer Edition</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&display=swap');
         
@@ -21,7 +22,6 @@
         .main-container { display: flex; flex-direction: column; height: 100vh; width: 100vw; }
         #gameHud { height: 70px; flex-shrink: 0; display: none; align-items: center; justify-content: space-between; padding: 0 20px; background: rgba(15, 23, 42, 0.95); border-bottom: 1px solid rgba(0, 242, 255, 0.2); z-index: 60; }
         
-        /* CẬP NHẬT: Shop nằm dọc bên phải */
         #gameShop { 
             position: absolute;
             right: 0;
@@ -35,17 +35,11 @@
             z-index: 50; 
             overflow-y: auto; 
             overflow-x: hidden;
-            scrollbar-width: none; /* Firefox */
+            scrollbar-width: none; 
         }
-        #gameShop::-webkit-scrollbar { display: none; } /* Chrome/Safari */
+        #gameShop::-webkit-scrollbar { display: none; }
 
-        .shop-container { 
-            display: flex; 
-            flex-direction: column; 
-            gap: 12px; 
-            padding: 15px 10px; 
-            align-items: center;
-        }
+        .shop-container { display: flex; flex-direction: column; gap: 12px; padding: 15px 10px; align-items: center; }
 
         .game-viewport { flex-grow: 1; position: relative; background: #020617; display: flex; align-items: center; justify-content: center; overflow: hidden; }
         canvas { display: block; touch-action: none; max-width: calc(100% - 90px); max-height: 100%; margin-right: 90px; }
@@ -89,7 +83,7 @@
             <div class="w-full h-1 bg-slate-800 rounded-full overflow-hidden">
                 <div id="loadingBar" class="h-full bg-cyan-400 shadow-[0_0_15px_#22d3ee]" style="width: 0%"></div>
             </div>
-            <p class="mt-4 text-[10px] text-cyan-400 tracking-[0.5em] animate-pulse uppercase">Initializing System...</p>
+            <p class="mt-4 text-[10px] text-cyan-400 tracking-[0.5em] animate-pulse uppercase">Initializing Multiplayer Engine...</p>
         </div>
     </div>
 
@@ -97,8 +91,23 @@
 
     <div id="mainMenu" class="fixed inset-0 z-50 flex items-center justify-center bg-[#020617]">
         <div class="glass-panel p-8 rounded-3xl w-full max-w-2xl text-center border-cyan-500/30 overflow-y-auto max-h-screen m-4">
-            <h2 class="text-3xl font-black mb-2 text-cyan-400 drop-shadow-[0_0_10px_rgba(34,211,238,0.5)]">NEON DEFENSE <span class="text-sm opacity-50">v.1.1</span></h2>
+            <h2 class="text-3xl font-black mb-2 text-cyan-400 drop-shadow-[0_0_10px_rgba(34,211,238,0.5)]">NEON DEFENSE <span class="text-sm opacity-50">v.1.2 ONLINE</span></h2>
             
+            <div id="multiplayerSection" class="mb-6 p-4 bg-cyan-900/20 rounded-2xl border border-cyan-500/30 text-left">
+                <div class="text-[10px] font-bold text-cyan-400 uppercase mb-2">Multiplayer Lobby</div>
+                <div class="flex flex-col gap-2">
+                    <div class="flex justify-between items-center bg-black/40 p-2 rounded border border-white/5">
+                        <span class="text-[9px] text-slate-400">YOUR NEON ID:</span>
+                        <span id="myPeerId" class="text-[10px] font-bold text-white tracking-widest">GENERATING...</span>
+                    </div>
+                    <div class="flex gap-2">
+                        <input type="text" id="joinPeerId" placeholder="FRIEND NEON ID..." class="flex-1 bg-black/40 border border-white/10 p-2 rounded text-[10px] text-cyan-400 outline-none">
+                        <button id="connectBtn" class="bg-cyan-600 px-4 py-2 rounded text-[10px] font-bold uppercase">Connect</button>
+                    </div>
+                    <div id="connStatus" class="text-[8px] text-yellow-500 text-center uppercase tracking-tighter">Status: Standalone Mode</div>
+                </div>
+            </div>
+
             <div class="flex justify-center gap-4 mb-6">
                 <div class="bg-slate-900 p-4 rounded-2xl border border-white/5 flex-1">
                     <div class="text-[10px] text-slate-500 uppercase">NeonCoin</div>
@@ -110,21 +119,6 @@
                 </div>
             </div>
 
-            <div class="mb-4 p-4 bg-slate-900/50 rounded-2xl border border-cyan-500/20 text-left">
-                <div class="flex justify-between items-center mb-1">
-                    <span class="text-[10px] font-bold text-cyan-400 uppercase">Daily Quest: Sector Explorer</span>
-                    <span class="text-[10px] text-slate-400" id="questResetTime">Reset in: --:--</span>
-                </div>
-                <p class="text-[9px] text-slate-300 mb-2">Play 3 Easy matches to receive 500 NeonCoins.</p>
-                <div class="w-full h-1.5 bg-slate-800 rounded-full overflow-hidden">
-                    <div id="questBar" class="h-full bg-green-500" style="width: 0%"></div>
-                </div>
-                <div class="flex justify-between mt-1">
-                    <span class="text-[10px] text-slate-500" id="questProgress">0 / 3</span>
-                    <span class="text-[10px] font-bold text-yellow-500" id="questStatus">ACTIVE</span>
-                </div>
-            </div>
-
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
                 <div class="text-left space-y-4">
                     <h3 class="text-xs font-bold text-slate-400 uppercase tracking-widest">Select Arena</h3>
@@ -132,7 +126,6 @@
                         <button onclick="window.selectMap(0)" id="map0" class="map-btn p-3 rounded-xl bg-slate-800 text-[10px] selected">SECTOR A</button>
                         <button onclick="window.selectMap(1)" id="map1" class="map-btn p-3 rounded-xl bg-slate-800 text-[10px]">CORRIDOR B</button>
                     </div>
-                    
                     <h3 class="text-xs font-bold text-slate-400 uppercase tracking-widest pt-2">Difficulty</h3>
                     <div class="grid grid-cols-2 gap-2">
                         <button onclick="window.selectDiff('easy')" id="diffEasy" class="diff-btn p-3 rounded-xl bg-slate-800 text-[10px] selected text-green-400">EASY (20 Waves)</button>
@@ -156,7 +149,7 @@
         </div>
     </div>
 
-    <!-- HUD (Top Bar) -->
+    <!-- HUD -->
     <div id="gameHud" class="glass-panel">
         <div class="flex gap-4 items-center">
             <div class="flex flex-col">
@@ -164,12 +157,12 @@
                 <span class="text-xl font-black text-yellow-400 tabular-nums">$<span id="money">2000</span></span>
             </div>
             <div class="flex flex-col min-w-[120px]">
-                <div class="flex justify-between items-center">
+                <div class="flex justify-between items-center h-4">
                     <span class="text-[10px] text-red-500 font-bold uppercase">Base Core</span>
-                    <button id="repairBtn" onclick="window.repairCore()" class="hidden bg-green-600 text-[8px] px-2 py-0.5 rounded font-bold">REPAIR (<span id="repairCount">2</span>)</button>
+                    <button id="repairBtn" onclick="window.repairCore()" class="hidden bg-green-600 text-[8px] px-2 py-0.5 rounded font-bold hover:bg-green-500 transition-colors">REPAIR (<span id="repairCount">2</span>)</button>
                 </div>
-                <div class="w-full h-2 bg-slate-800 rounded-full mt-1 overflow-hidden">
-                    <div id="healthBar" class="h-full bg-red-500 shadow-[0_0_10px_#ef4444]" style="width: 100%"></div>
+                <div class="w-full h-2 bg-slate-800 rounded-full mt-1 overflow-hidden border border-white/5">
+                    <div id="healthBar" class="h-full bg-red-500 shadow-[0_0_10px_#ef4444] transition-all duration-300" style="width: 100%"></div>
                 </div>
             </div>
         </div>
@@ -182,24 +175,19 @@
 
     <div class="game-viewport">
         <canvas id="gameCanvas"></canvas>
-
-        <!-- Shop (Thanh dọc bên phải) -->
         <div id="gameShop" class="glass-panel">
             <div class="shop-container" id="shop"></div>
         </div>
-        
-        <!-- Upgrade Menu -->
         <div id="upgradeMenu" class="glass-panel p-5 rounded-2xl z-40 w-64 border-cyan-500/40 shadow-xl shadow-cyan-500/10">
             <h3 id="unitName" class="font-black text-cyan-400 text-lg italic uppercase">UNIT</h3>
             <p id="unitStats" class="text-[11px] text-slate-400 mb-2 uppercase">Stats...</p>
             <p id="upgradeLevel" class="text-[10px] text-yellow-500 font-bold mb-4">Upgrades: 0/3</p>
             <div class="space-y-2">
-                <button id="upgradeBtn" class="neon-btn w-full py-3 bg-emerald-600 hover:bg-emerald-500 rounded-xl font-bold text-xs text-white">UPGRADE</button>
-                <button id="sellBtn" class="neon-btn w-full py-3 bg-red-900/40 border border-red-500/40 hover:bg-red-600 rounded-xl font-bold text-xs text-white">SELL (<span id="sellValue">$0</span>)</button>
+                <button id="upgradeBtn" class="neon-btn w-full py-3 bg-emerald-600 hover:bg-emerald-500 rounded-xl font-bold text-xs text-white uppercase">Upgrade</button>
+                <button id="sellBtn" class="neon-btn w-full py-3 bg-red-900/40 border border-red-500/40 hover:bg-red-600 rounded-xl font-bold text-xs text-white uppercase">Sell (<span id="sellValue">$0</span>)</button>
                 <button onclick="window.closeUpgradeMenu()" class="w-full py-2 text-[10px] text-slate-500 uppercase pt-2">Close</button>
             </div>
         </div>
-
         <div id="gameResult" class="absolute hidden inset-0 z-50 flex items-center justify-center bg-black/90 backdrop-blur-md">
             <div class="text-center">
                 <h2 id="resultTitle" class="text-5xl font-black mb-4 uppercase">SYSTEM BREACHED</h2>
@@ -237,8 +225,7 @@
         import { getFirestore, doc, setDoc, getDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         const firebaseConfigStr = typeof __firebase_config !== 'undefined' ? __firebase_config : null;
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'neon-defend-extreme-local';
-        
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'neon-defend-v12-extreme';
         let db = null, auth = null;
         if (firebaseConfigStr) {
             const firebaseConfig = JSON.parse(firebaseConfigStr);
@@ -248,11 +235,117 @@
         }
 
         let user = null, isVip = false, globalCoins = 0, usedCodes = [], ownedUnits = ['scout', 'sniper', 'boom', 'wall'], temporaryUnits = []; 
-        let questData = { progress: 0, lastReset: Date.now(), completed: false };
         let gameActive = false, selectedMapIdx = 0, selectedDiffVal = 'easy';
         let gameState = { money: 2000, wave: 1, towers: [], health: 100, maxHealth: 100, isWaveActive: false, difficulty: 'easy', vipTimer: 0, repairsLeft: 2 };
         let enemies = [], projectiles = [], particles = [];
         let selectedPlacement = null, selectedTowerId = null, mousePos = { x: 0, y: 0 };
+
+        // PEER MULTIPLAYER ENGINE
+        let peer = null, peerConn = null, isHost = true; 
+
+        function initPeer() {
+            const randomId = 'NEON-' + Math.floor(1000 + Math.random() * 9000);
+            peer = new Peer(randomId);
+            peer.on('open', (id) => { document.getElementById('myPeerId').innerText = id; });
+            peer.on('connection', (conn) => {
+                isHost = true; 
+                peerConn = conn;
+                setupPeerEvents();
+                showAlert("DEFENDER CONNECTED!", "cyan");
+                document.getElementById('connStatus').innerText = "Status: Collaboration (HOST)";
+            });
+            peer.on('error', (err) => { showAlert("CONNECTION ERROR", "red"); });
+        }
+
+        document.getElementById('connectBtn').onclick = () => {
+            const targetId = document.getElementById('joinPeerId').value.trim();
+            if (!targetId) return showAlert("ENTER ID FIRST", "red");
+            isHost = false;
+            peerConn = peer.connect(targetId);
+            setupPeerEvents();
+            document.getElementById('connStatus').innerText = "Status: Linking...";
+        };
+
+        function setupPeerEvents() {
+            peerConn.on('open', () => {
+                showAlert("SYSTEM SYNCED", "emerald");
+                document.getElementById('connStatus').innerText = isHost ? "Status: Collaboration (HOST)" : "Status: Collaboration (CLIENT)";
+                if (isHost) sendPeerData('SYNC_CONFIG', { map: selectedMapIdx, diff: selectedDiffVal });
+            });
+            peerConn.on('data', (data) => { handlePeerData(data); });
+            peerConn.on('close', () => { 
+                showAlert("CONNECTION LOST", "red"); 
+                document.getElementById('connStatus').innerText = "Status: Standalone Mode"; 
+                isHost = true;
+            });
+        }
+
+        function sendPeerData(type, payload) { if (peerConn && peerConn.open) { peerConn.send({ type, payload }); } }
+
+        function handlePeerData(msg) {
+            const { type, payload } = msg;
+            switch(type) {
+                case 'SYNC_CONFIG':
+                    window.selectMap(payload.map);
+                    window.selectDiff(payload.diff);
+                    break;
+                case 'PLACE_TOWER':
+                    const t = towerData[payload.type];
+                    gameState.towers.push({ 
+                        ...t, x: payload.x, y: payload.y, level: 0, 
+                        upgradeCost: t.upgradeInit, timer: 0, id: payload.id, 
+                        totalInvested: 0, currentDmg: t.dmg, currentSpd: t.spd, 
+                        currentHp: t.hp || 0, currentMaxHp: t.hp || 0, isFriend: true 
+                    });
+                    break;
+                case 'UPGRADE_TOWER':
+                    const upTower = gameState.towers.find(t => t.id === payload.id);
+                    if (upTower) {
+                        upTower.level++;
+                        if (upTower.type !== 'wall') { 
+                            upTower.currentDmg = Math.floor(upTower.currentDmg + (upTower.maxDmg - upTower.dmg)/3); 
+                            upTower.currentSpd = Math.max(upTower.maxSpd, upTower.currentSpd - (upTower.spd - upTower.maxSpd)/3); 
+                            upTower.range += 30; 
+                        } else { upTower.currentMaxHp += 200; upTower.currentHp += 200; }
+                    }
+                    break;
+                case 'SELL_TOWER':
+                    gameState.towers = gameState.towers.filter(t => t.id !== payload.id);
+                    break;
+                case 'WAVE_START':
+                    startWaveLogic();
+                    break;
+                case 'ENEMY_SPAWN':
+                    if (!isHost) enemies.push({ ...payload, slowFactor: 1, frozen: 0 });
+                    break;
+                case 'SYNC_ENEMIES':
+                    if (!isHost) {
+                        payload.enemies.forEach(remoteEnemy => {
+                            const local = enemies.find(e => e.id === remoteEnemy.id);
+                            if (local) {
+                                local.x = remoteEnemy.x; local.y = remoteEnemy.y;
+                                local.hp = remoteEnemy.hp; local.wp = remoteEnemy.wp;
+                                local.slowFactor = remoteEnemy.slowFactor;
+                            } else { enemies.push({ ...remoteEnemy, frozen: 0 }); }
+                        });
+                        const hostIds = payload.enemies.map(e => e.id);
+                        enemies = enemies.filter(e => hostIds.includes(e.id));
+                    }
+                    break;
+                case 'SYNC_BASE':
+                    if (!isHost) {
+                        gameState.health = payload.health;
+                        gameState.isWaveActive = payload.isWaveActive;
+                        gameState.wave = payload.wave;
+                        updateUI();
+                    }
+                    break;
+                case 'REPAIR_CORE':
+                     gameState.health = payload.health;
+                     updateUI();
+                     break;
+            }
+        }
 
         const canvas = document.getElementById('gameCanvas');
         const ctx = canvas.getContext('2d');
@@ -263,8 +356,7 @@
             try {
                 const osc = audioCtx.createOscillator();
                 const gain = audioCtx.createGain();
-                osc.type = type;
-                osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+                osc.type = type; osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
                 gain.gain.setValueAtTime(vol, audioCtx.currentTime);
                 gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + duration);
                 osc.connect(gain); gain.connect(audioCtx.destination);
@@ -282,8 +374,8 @@
         const towerData = {
             scout: { type: 'scout', name: "GUN", price: 150, range: 160, dmg: 40, maxDmg: 250, spd: 60, maxSpd: 30, color: "#00f2ff", emoji: "🔫", p_spd: 12, upgradeInit: 150 },
             sniper: { type: 'sniper', name: "SNIPER", price: 500, range: 450, dmg: 100, maxDmg: 400, spd: 240, maxSpd: 30, color: "#bc13fe", emoji: "🎯", p_spd: 22, upgradeInit: 300 },
-            boom: { type: 'boom', name: "ROCKET", price: 850, range: 220, dmg: 200, maxDmg: 700, spd: 200, maxSpd: 60, color: "#ff003c", emoji: "🚀", p_spd: 8, upgradeInit: 500, upgradeMax: 1500 },
-            ak47: { type: 'ak47', name: "MINI GUN", price: 1300, range: 250, dmg: 120, maxDmg: 800, spd: 60, maxSpd: 0, color: "#fde047", emoji: "🔫", p_spd: 15, upgradeInit: 1000, upgradeMax: 3000 },
+            boom: { type: 'boom', name: "ROCKET", price: 850, range: 220, dmg: 200, maxDmg: 700, spd: 200, maxSpd: 60, color: "#ff003c", emoji: "🚀", p_spd: 8, upgradeInit: 500 },
+            ak47: { type: 'ak47', name: "MINI GUN", price: 1300, range: 250, dmg: 120, maxDmg: 800, spd: 60, maxSpd: 0, color: "#fde047", emoji: "🔫", p_spd: 15, upgradeInit: 1000 },
             wall: { type: 'wall', name: "WALL", price: 1500, range: 60, dmg: 30, maxDmg: 30, spd: 0, color: "#10b981", emoji: "🚧", p_spd: 0, upgradeInit: 800, hp: 500, maxHp: 1200 },
             lazer: { type: 'lazer', name: "LAZER", price: 2000, range: 300, dmg: 10, maxDmg: 1000, spd: 1, color: "#ff0000", emoji: "⚡", p_spd: 0, upgradeInit: 1000, isLaser: true },
             freeze: { type: 'freeze', name: "FREEZE", price: 2200, range: 250, dmg: 20, maxDmg: 500, spd: 60, maxSpd: 60, color: "#00ffff", emoji: "❄️", p_spd: 10, upgradeInit: 1200, isFreeze: true },
@@ -308,11 +400,11 @@
         ];
 
         const initGame = async () => {
+            initPeer();
             if (!auth) { loadLocalData(); return; }
             try {
-                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-                    await signInWithCustomToken(auth, __initial_auth_token);
-                } else { await signInAnonymously(auth); }
+                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) { await signInWithCustomToken(auth, __initial_auth_token); } 
+                else { await signInAnonymously(auth); }
             } catch(e) { loadLocalData(); }
         };
 
@@ -320,11 +412,9 @@
             const local = localStorage.getItem('neon_defense_save');
             if (local) {
                 const data = JSON.parse(local);
-                globalCoins = data.coins ?? 0;
-                isVip = data.isVip ?? false;
+                globalCoins = data.coins ?? 0; isVip = data.isVip ?? false;
                 ownedUnits = data.ownedUnits ?? ['scout', 'sniper', 'boom', 'wall'];
                 usedCodes = data.usedCodes ?? [];
-                questData = data.questData ?? { progress: 0, lastReset: Date.now(), completed: false };
             }
             updateMenuUI(); renderInGameShop();
         }
@@ -335,21 +425,19 @@
                     user = u;
                     onSnapshot(doc(db, 'artifacts', appId, 'users', user.uid, 'profile', 'data'), (snap) => {
                         if (snap.exists()) {
-                            const data = snap.data();
-                            globalCoins = data.coins ?? 0;
-                            isVip = data.isVip ?? false;
+                            const data = snap.data(); 
+                            globalCoins = data.coins ?? 0; isVip = data.isVip ?? false;
                             ownedUnits = data.ownedUnits ?? ['scout', 'sniper', 'boom', 'wall'];
                             usedCodes = data.usedCodes ?? [];
-                            questData = data.questData ?? { progress: 0, lastReset: Date.now(), completed: false };
                         } else { saveProfile(); }
                         updateMenuUI(); renderInGameShop();
-                    }, () => {});
+                    });
                 }
             });
         }
 
         async function saveProfile() {
-            const saveData = { coins: globalCoins, isVip: isVip, ownedUnits: ownedUnits, usedCodes: usedCodes, questData: questData, updatedAt: Date.now() };
+            const saveData = { coins: globalCoins, isVip: isVip, ownedUnits: ownedUnits, usedCodes: usedCodes, updatedAt: Date.now() };
             localStorage.setItem('neon_defense_save', JSON.stringify(saveData));
             if (!user || !db) return;
             try { await setDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'profile', 'data'), saveData, { merge: true }); } catch (e) {}
@@ -359,7 +447,7 @@
             initGame();
             const bar = document.getElementById('loadingBar');
             let startTime = Date.now();
-            const duration = 2000; 
+            const duration = 1500; 
             const updateLoading = () => {
                 const elapsed = Date.now() - startTime;
                 let progress = Math.min((elapsed / duration) * 100, 100);
@@ -378,50 +466,20 @@
 
         function updateMenuUI() {
             document.getElementById('globalCoins').innerText = globalCoins;
-            const vipLabel = document.getElementById('vipLabel');
+            const vLabel = document.getElementById('vipLabel');
             if (isVip) {
-                vipLabel.innerHTML = "👑 VIP Rank"; vipLabel.className = "text-sm font-bold vip-rank";
+                vLabel.innerHTML = "👑 VIP Rank"; vLabel.className = "text-sm font-bold vip-rank";
                 document.getElementById('buyVipBtn').style.display = 'none';
-            }
-            updateQuestUI();
-        }
-
-        function checkQuestReset() {
-            const now = Date.now();
-            const oneDay = 24 * 60 * 60 * 1000;
-            if (now - questData.lastReset >= oneDay) {
-                questData.progress = 0; questData.completed = false; questData.lastReset = now; saveProfile();
-            }
-        }
-
-        function updateQuestUI() {
-            checkQuestReset();
-            const bar = document.getElementById('questBar');
-            const progressEl = document.getElementById('questProgress');
-            const statusEl = document.getElementById('questStatus');
-            const timerEl = document.getElementById('questResetTime');
-            bar.style.width = (questData.progress / 3 * 100) + '%';
-            progressEl.innerText = `${questData.progress} / 3`;
-            if (questData.completed) {
-                statusEl.innerText = "CLAIMED"; statusEl.className = "text-[10px] font-bold text-green-500";
-            } else {
-                statusEl.innerText = questData.progress >= 3 ? "READY" : "ACTIVE";
-                statusEl.className = `text-[10px] font-bold ${questData.progress >= 3 ? 'text-cyan-400' : 'text-yellow-500'}`;
-            }
-            const timeLeft = (questData.lastReset + (24*60*60*1000)) - Date.now();
-            if (timeLeft > 0) {
-                const h = Math.floor(timeLeft / 3600000), m = Math.floor((timeLeft % 3600000) / 60000);
-                timerEl.innerText = `Reset in: ${h}h ${m}m`;
             }
         }
 
         function showAlert(msg, color="cyan") {
-            const alertContainer = document.getElementById('customAlert');
+            const container = document.getElementById('customAlert');
             const el = document.createElement('div');
-            const colorClass = color === "white" ? "slate-100" : (color === "cyan" ? "cyan" : color);
-            el.className = `px-6 py-2 rounded-full font-bold text-xs bg-${colorClass === "white" ? "white/10" : colorClass + "-500/20"} text-${colorClass === "white" ? "white" : colorClass + "-400"} border border-${colorClass === "white" ? "white/20" : colorClass + "-500/30"} mb-2 shadow-lg transition-opacity duration-300`;
-            el.innerText = msg; alertContainer.appendChild(el);
-            setTimeout(() => { el.classList.add('opacity-0'); setTimeout(() => el.remove(), 300); }, 3000);
+            const cls = color === "white" ? "slate-100" : color;
+            el.className = `px-6 py-2 rounded-full font-bold text-xs bg-${cls === "white" ? "white/10" : cls + "-500/20"} text-${cls === "white" ? "white" : cls + "-400"} border border-${cls === "white" ? "white/20" : cls + "-500/30"} mb-2 shadow-lg transition-all duration-300`;
+            el.innerText = msg; container.appendChild(el);
+            setTimeout(() => { el.style.opacity = '0'; setTimeout(() => el.remove(), 300); }, 3000);
         }
 
         window.toggleUnitShop = (show) => { initAudio(); playClick(); document.getElementById('unitShopModal').style.display = show ? 'flex' : 'none'; if (show) renderUnitShop(); };
@@ -450,36 +508,10 @@
             });
         }
 
-        window.buyUnit = async (id, cost) => {
-            playClick();
-            if (globalCoins >= cost && !ownedUnits.includes(id)) {
-                globalCoins -= cost; ownedUnits.push(id); await saveProfile(); renderUnitShop(); showAlert("UNIT PURCHASED PERMANENTLY", "purple"); playUpgrade();
-            } else if (!ownedUnits.includes(id)) showAlert("INSUFFICIENT COINS", "red");
-        };
-
-        window.buyNormalUnit = async (id, cost) => {
-            playClick();
-            if (globalCoins >= cost && !temporaryUnits.includes(id) && !ownedUnits.includes(id)) {
-                globalCoins -= cost; temporaryUnits.push(id); await saveProfile(); renderNormalShop(); showAlert("UNIT READY FOR THIS MATCH", "white"); playUpgrade();
-            } else if (!temporaryUnits.includes(id) && !ownedUnits.includes(id)) showAlert("INSUFFICIENT COINS", "red");
-        };
-
-        window.applyCheat = async () => {
-            const code = document.getElementById('cheatCode').value.trim().toLowerCase();
-            if (code === 'get3k' || code === 'neondefendev1') {
-                if (usedCodes.includes(code)) { showAlert("CODE ALREADY USED", "red"); return; }
-                const amount = code === 'get3k' ? 3000 : 500;
-                globalCoins += amount; usedCodes.push(code); await saveProfile(); showAlert(`CHEAT ACTIVATED: +${amount} COINS!`, "emerald");
-                document.getElementById('cheatCode').value = ""; playUpgrade();
-            } else showAlert("INVALID CODE", "red");
-        };
-
-        window.buyVip = async () => {
-            playClick();
-            if (globalCoins >= 3000 && !isVip) {
-                globalCoins -= 3000; isVip = true; await saveProfile(); showAlert("VIP ACTIVATED", "emerald"); playUpgrade();
-            } else if (!isVip) showAlert("INSUFFICIENT COINS", "red");
-        };
+        window.buyUnit = async (id, cost) => { if (globalCoins >= cost && !ownedUnits.includes(id)) { globalCoins -= cost; ownedUnits.push(id); await saveProfile(); renderUnitShop(); showAlert("UNIT PURCHASED", "purple"); playUpgrade(); } };
+        window.buyNormalUnit = async (id, cost) => { if (globalCoins >= cost && !temporaryUnits.includes(id) && !ownedUnits.includes(id)) { globalCoins -= cost; temporaryUnits.push(id); await saveProfile(); renderNormalShop(); showAlert("UNIT READY", "white"); playUpgrade(); } };
+        window.applyCheat = async () => { const code = document.getElementById('cheatCode').value.trim().toLowerCase(); if (code === 'get3k') { if (usedCodes.includes(code)) return; globalCoins += 3000; usedCodes.push(code); await saveProfile(); showAlert(`CHEAT ACTIVATED!`, "emerald"); } };
+        window.buyVip = async () => { if (globalCoins >= 3000 && !isVip) { globalCoins -= 3000; isVip = true; await saveProfile(); showAlert("VIP ACTIVATED", "emerald"); playUpgrade(); } };
 
         function renderInGameShop() {
             const shop = document.getElementById('shop'); shop.innerHTML = "";
@@ -489,39 +521,55 @@
                 const card = document.createElement('div');
                 card.className = 'unit-card';
                 card.innerHTML = `<div class="text-xl">${t.emoji}</div><div class="flex flex-col text-center mt-0.5"><span class="text-[8px] font-bold text-cyan-400">${t.name}</span><span class="text-[10px] font-black text-yellow-500">$${Math.floor(isVip ? t.price*0.8 : t.price)}</span></div>`;
-                card.onclick = (e) => { 
-                    playClick(); e.stopPropagation(); selectedPlacement = key; selectedTowerId = null;
-                    document.querySelectorAll('.unit-card').forEach(c => c.classList.remove('active')); card.classList.add('active'); 
-                };
+                card.onclick = (e) => { playClick(); e.stopPropagation(); selectedPlacement = key; selectedTowerId = null; document.querySelectorAll('.unit-card').forEach(c => c.classList.remove('active')); card.classList.add('active'); };
                 shop.appendChild(card);
             });
         }
 
-        window.selectMap = (i) => { playClick(); selectedMapIdx = i; document.querySelectorAll('.map-btn').forEach(b => b.classList.remove('selected')); document.getElementById('map'+i).classList.add('selected'); };
-        window.selectDiff = (d) => { playClick(); selectedDiffVal = d; document.querySelectorAll('.diff-btn').forEach(b => b.classList.remove('selected')); document.getElementById('diff' + d.charAt(0).toUpperCase() + d.slice(1)).classList.add('selected'); };
+        window.selectMap = (i) => { selectedMapIdx = i; document.querySelectorAll('.map-btn').forEach(b => b.classList.remove('selected')); document.getElementById('map'+i).classList.add('selected'); if (isHost) sendPeerData('SYNC_CONFIG', { map: selectedMapIdx, diff: selectedDiffVal }); };
+        window.selectDiff = (d) => { selectedDiffVal = d; document.querySelectorAll('.diff-btn').forEach(b => b.classList.remove('selected')); document.getElementById('diff' + d.charAt(0).toUpperCase() + d.slice(1)).classList.add('selected'); if (isHost) sendPeerData('SYNC_CONFIG', { map: selectedMapIdx, diff: selectedDiffVal }); };
 
         window.startGame = () => {
-            initAudio(); playClick();
-            document.getElementById('mainMenu').classList.add('hidden'); 
-            document.getElementById('gameHud').style.display = 'flex'; 
-            document.getElementById('gameShop').style.display = 'flex'; 
+            initAudio(); playClick(); document.getElementById('mainMenu').classList.add('hidden'); 
+            document.getElementById('gameHud').style.display = 'flex'; document.getElementById('gameShop').style.display = 'flex'; 
             gameState = { money: 2000, wave: 1, towers: [], health: 100, maxHealth: 100, isWaveActive: false, difficulty: selectedDiffVal, vipTimer: 0, repairsLeft: 2 };
-            if (isVip) document.getElementById('repairBtn').classList.remove('hidden');
-            gameActive = true; updateUI(); renderInGameShop(); resize(); requestAnimationFrame(gameLoop);
+            enemies = []; projectiles = [];
+            
+            if (isVip) {
+                document.getElementById('repairBtn').classList.remove('hidden');
+                document.getElementById('repairCount').innerText = gameState.repairsLeft;
+                document.getElementById('repairBtn').style.opacity = "1";
+                document.getElementById('repairBtn').style.pointerEvents = "auto";
+            }
+            
+            gameActive = true; updateUI(); resize(); requestAnimationFrame(gameLoop);
+        };
+
+        window.repairCore = () => {
+            if (!isVip || !gameActive || gameState.repairsLeft <= 0) return;
+            if (gameState.health >= gameState.maxHealth) { showAlert("CORE STABLE", "white"); return; }
+            
+            playUpgrade();
+            gameState.health = Math.min(gameState.maxHealth, gameState.health + 50);
+            gameState.repairsLeft--;
+            document.getElementById('repairCount').innerText = gameState.repairsLeft;
+            
+            if (gameState.repairsLeft <= 0) {
+                document.getElementById('repairBtn').style.opacity = "0.4";
+                document.getElementById('repairBtn').style.pointerEvents = "none";
+            }
+            
+            showAlert("CORE REPAIRED +50", "emerald");
+            updateUI();
+            sendPeerData('REPAIR_CORE', { health: gameState.health });
         };
 
         function resize() {
             const viewport = document.querySelector('.game-viewport');
-            const availH = viewport.clientHeight, availW = viewport.clientWidth;
-            const intW = 1200, intH = 800;
-            const ratio = intW / intH;
-            
-            // Trừ đi chiều rộng shop bên phải (90px) để canvas không bị đè
-            let w = availW - 90, h = w / ratio;
-            if (h > availH) { h = availH; w = h * ratio; }
-            
-            canvas.style.width = `${w}px`; canvas.style.height = `${h}px`;
-            canvas.width = intW; canvas.height = intH;
+            const hA = viewport.clientHeight, wA = viewport.clientWidth;
+            const ratio = 1200 / 800; let w = wA - 90, h = w / ratio;
+            if (h > hA) { h = hA; w = h * ratio; }
+            canvas.style.width = `${w}px`; canvas.style.height = `${h}px`; canvas.width = 1200; canvas.height = 800;
         }
         window.addEventListener('resize', resize);
 
@@ -540,17 +588,18 @@
                 const price = Math.floor(isVip ? t.price * 0.8 : t.price);
                 if (gameState.money >= price) {
                     const near = isNearPath(x, y, 40);
-                    const canPlace = (t.type === 'wall' ? near : !near) && !gameState.towers.some(ot => Math.hypot(ot.x-x, ot.y-y) < 55);
-                    if (canPlace) {
-                        gameState.towers.push({ ...t, x, y, level: 0, upgradeCost: t.upgradeInit, timer: 0, id: Date.now(), totalInvested: price, currentDmg: t.dmg, currentSpd: t.spd, currentHp: t.hp || 0, currentMaxHp: t.hp || 0 });
+                    if ((t.type === 'wall' ? near : !near) && !gameState.towers.some(ot => Math.hypot(ot.x-x, ot.y-y) < 55)) {
+                        const towerId = Date.now() + Math.random();
+                        gameState.towers.push({ ...t, x, y, level: 0, upgradeCost: t.upgradeInit, timer: 0, id: towerId, totalInvested: price, currentDmg: t.dmg, currentSpd: t.spd, currentHp: t.hp || 0, currentMaxHp: t.hp || 0 });
                         gameState.money -= price; updateUI(); selectedPlacement = null;
                         document.querySelectorAll('.unit-card').forEach(c => c.classList.remove('active')); playClick();
-                    } else showAlert("INVALID PLACEMENT", "red");
-                } else showAlert("INSUFFICIENT FUNDS", "red");
+                        sendPeerData('PLACE_TOWER', { type: t.type, x, y, id: towerId });
+                    }
+                }
                 return;
             }
             const clicked = gameState.towers.find(t => Math.hypot(t.x - x, t.y - y) < 40);
-            if (clicked) { playClick(); selectedTowerId = clicked.id; openUpgrade(clicked, e.clientX, e.clientY); }
+            if (clicked && !clicked.isFriend) { playClick(); selectedTowerId = clicked.id; openUpgrade(clicked, e.clientX, e.clientY); }
             else window.closeUpgradeMenu();
         });
 
@@ -571,13 +620,13 @@
         function openUpgrade(tower, sx, sy) {
             const menu = document.getElementById('upgradeMenu'); 
             document.getElementById('unitName').innerText = tower.name;
-            let stats = tower.type === 'wall' ? `Reflect: ${tower.currentDmg} | HP: ${Math.floor(tower.currentHp)}` : `Dmg: ${tower.currentDmg} | Spd: ${(tower.currentSpd/60).toFixed(1)}s`;
+            let stats = tower.type === 'wall' ? `Armor: ${tower.currentDmg} | HP: ${Math.floor(tower.currentHp)}` : `Dmg: ${tower.currentDmg} | Spd: ${(tower.currentSpd/60).toFixed(1)}s`;
             document.getElementById('unitStats').innerText = stats; 
             document.getElementById('upgradeLevel').innerText = `Upgrades: ${tower.level}/3`;
             const sellVal = Math.floor(tower.totalInvested * 0.6); 
             document.getElementById('sellValue').innerText = `$${sellVal}`;
             const upBtn = document.getElementById('upgradeBtn');
-            if (tower.level >= 3) { upBtn.innerText = "MAX POWER"; upBtn.onclick = null; }
+            if (tower.level >= 3) { upBtn.innerText = "MAX"; upBtn.onclick = null; }
             else {
                 upBtn.innerText = `UPGRADE ($${tower.upgradeCost})`;
                 upBtn.onclick = () => {
@@ -589,170 +638,124 @@
                             tower.range += 30; 
                         } else { tower.currentMaxHp += 200; tower.currentHp += 200; }
                         tower.totalInvested += tower.upgradeCost; tower.upgradeCost = Math.floor(tower.upgradeCost * 1.5);
-                        updateUI(); openUpgrade(tower, sx, sy); showAlert("SYSTEM UPGRADED", "emerald");
-                    } else showAlert("NOT ENOUGH MONEY", "red");
+                        updateUI(); openUpgrade(tower, sx, sy); sendPeerData('UPGRADE_TOWER', { id: tower.id });
+                    }
                 };
             }
             menu.style.left = `${Math.min(window.innerWidth-350, Math.max(20, sx-130))}px`; 
-            menu.style.top = `${Math.min(window.innerHeight-350, Math.max(90, sy-220))}px`; 
-            menu.style.display = 'block';
-            document.getElementById('sellBtn').onclick = () => { 
-                playClick(); gameState.money += sellVal; gameState.towers = gameState.towers.filter(t => t.id !== tower.id); updateUI(); window.closeUpgradeMenu(); 
-            };
+            menu.style.top = `${Math.min(window.innerHeight-350, Math.max(90, sy-220))}px`; menu.style.display = 'block';
+            document.getElementById('sellBtn').onclick = () => { gameState.money += sellVal; gameState.towers = gameState.towers.filter(t => t.id !== tower.id); updateUI(); window.closeUpgradeMenu(); sendPeerData('SELL_TOWER', { id: tower.id }); };
         }
         window.closeUpgradeMenu = () => { document.getElementById('upgradeMenu').style.display = 'none'; selectedTowerId = null; };
 
         function updateUI() { 
-            document.getElementById('money').innerText = Math.floor(gameState.money); 
-            document.getElementById('wave').innerText = gameState.wave; 
+            document.getElementById('money').innerText = Math.floor(gameState.money); document.getElementById('wave').innerText = gameState.wave; 
             document.getElementById('healthBar').style.width = `${(gameState.health / gameState.maxHealth) * 100}%`; 
-            const btn = document.getElementById('nextWaveBtn');
-            btn.style.opacity = gameState.isWaveActive ? "0.5" : "1";
-            btn.style.pointerEvents = gameState.isWaveActive ? "none" : "auto";
+            const btn = document.getElementById('nextWaveBtn'); btn.style.opacity = gameState.isWaveActive ? "0.5" : "1"; btn.style.pointerEvents = gameState.isWaveActive ? "none" : "auto";
         }
 
-        document.getElementById('nextWaveBtn').onclick = () => {
-            playClick(); if (gameState.isWaveActive) return;
+        document.getElementById('nextWaveBtn').onclick = () => { if (gameState.isWaveActive) return; startWaveLogic(); sendPeerData('WAVE_START', {}); };
+
+        function startWaveLogic() {
             gameState.isWaveActive = true; updateUI(); 
-            let c = 0, total = 8 + gameState.wave * 2;
+            // Chỉ Host được quyền tạo quái
+            if (!isHost) return; 
+
+            let count = 0, total = 8 + gameState.wave * 2;
             const wps = mapWays[selectedMapIdx];
             const isBoss = gameState.wave % 5 === 0;
             const isFinal = (gameState.wave === 20 && gameState.difficulty === 'easy') || (gameState.wave === 35 && gameState.difficulty === 'hard');
-            const itv = setInterval(() => {
-                if (!gameActive) { clearInterval(itv); return; }
+            
+            const spawnInterval = setInterval(() => {
+                if (!gameActive) { clearInterval(spawnInterval); return; }
                 const hp = isFinal ? 30000 : (isBoss ? 2000 : 80) + (gameState.wave * (isBoss ? 1500 : 100));
-                enemies.push({ x:wps[0].x, y:wps[0].y, hp, maxHp:hp, baseSpd: (isBoss ? 0.6 : 1.2) + (gameState.wave*0.05), wp:0, isBoss, isUltimate:isFinal, frozen:0, slowFactor:1 });
-                if (++c >= (isBoss ? 1 : total)) clearInterval(itv);
+                const enemyObj = { 
+                    id: Date.now() + Math.random(), x:wps[0].x, y:wps[0].y, 
+                    hp, maxHp:hp, baseSpd: (isBoss ? 0.6 : 1.2) + (gameState.wave*0.05), 
+                    wp:0, isBoss, isUltimate:isFinal 
+                };
+                enemies.push({ ...enemyObj, frozen:0, slowFactor:1 });
+                sendPeerData('ENEMY_SPAWN', enemyObj);
+                
+                count++;
+                if (count >= (isBoss ? 1 : total)) clearInterval(spawnInterval);
             }, 800);
-        };
-
-        window.repairCore = () => {
-            playClick();
-            if (gameState.repairsLeft > 0 && gameState.health < gameState.maxHealth) {
-                gameState.health = Math.min(gameState.maxHealth, gameState.health + 40); gameState.repairsLeft--;
-                document.getElementById('repairCount').innerText = gameState.repairsLeft; 
-                updateUI(); showAlert("SYSTEM REPAIRED", "emerald");
-                if (gameState.repairsLeft === 0) document.getElementById('repairBtn').classList.add('hidden');
-            }
-        };
-
-        function drawLightning(x1, y1, x2, y2, color) {
-            ctx.strokeStyle = color;
-            ctx.lineWidth = 2;
-            ctx.shadowBlur = 10;
-            ctx.shadowColor = color;
-            ctx.beginPath();
-            ctx.moveTo(x1, y1);
-            let steps = 4;
-            for (let i = 1; i <= steps; i++) {
-                let tx = x1 + (x2 - x1) * (i / steps) + (Math.random() - 0.5) * 30;
-                let ty = y1 + (y2 - y1) * (i / steps) + (Math.random() - 0.5) * 30;
-                ctx.lineTo(tx, ty);
-            }
-            ctx.lineTo(x2, y2);
-            ctx.stroke();
-            ctx.shadowBlur = 0;
         }
 
         function gameLoop() {
             if (!gameActive) return;
             if (isVip && ++gameState.vipTimer >= 1500) { gameState.money += 300; updateUI(); gameState.vipTimer = 0; }
             if (gameState.health <= 0) { endGame(false); return; }
-            if (gameState.isWaveActive && enemies.length === 0) {
-                gameState.isWaveActive = false; gameState.wave++; updateUI();
-                showAlert(`WAVE ${gameState.wave-1} CLEARED`, "emerald");
-                const max = gameState.difficulty === 'easy' ? 20 : 35;
-                if (gameState.wave > max) endGame(true);
-            }
-            ctx.fillStyle = '#020617'; ctx.fillRect(0,0,canvas.width,canvas.height);
-            const wps = mapWays[selectedMapIdx];
-            ctx.strokeStyle = '#0f172a'; ctx.lineWidth = 65; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
-            ctx.beginPath(); ctx.moveTo(wps[0].x, wps[0].y); wps.forEach(w => ctx.lineTo(w.x, w.y)); ctx.stroke();
             
-            if (selectedPlacement) {
-                const t = towerData[selectedPlacement];
-                ctx.beginPath(); ctx.arc(mousePos.x, mousePos.y, t.range, 0, Math.PI*2);
-                ctx.fillStyle = t.color + "33"; ctx.fill(); 
-                ctx.strokeStyle = t.color; ctx.setLineDash([10, 5]); ctx.stroke(); ctx.setLineDash([]);
+            if (isHost && peerConn && peerConn.open) {
+                sendPeerData('SYNC_BASE', { health: gameState.health, isWaveActive: gameState.isWaveActive, wave: gameState.wave });
+                sendPeerData('SYNC_ENEMIES', { enemies: enemies.map(e => ({ id:e.id, x:e.x, y:e.y, hp:e.hp, wp:e.wp, slowFactor:e.slowFactor, isBoss:e.isBoss, isUltimate:e.isUltimate, maxHp:e.maxHp })) });
             }
 
-            for(let i=gameState.towers.length-1; i>=0; i--) {
-                const t = gameState.towers[i];
-                ctx.beginPath(); ctx.arc(t.x, t.y, t.range, 0, Math.PI * 2);
-                ctx.fillStyle = t.color + (selectedTowerId === t.id ? "25" : "15"); ctx.fill();
-                ctx.strokeStyle = t.color + (selectedTowerId === t.id ? "FF" : "99"); ctx.lineWidth = selectedTowerId === t.id ? 4 : 2; ctx.stroke();
-                ctx.shadowBlur = 20; ctx.shadowColor = t.color; ctx.fillStyle = t.color; 
-                ctx.beginPath(); ctx.arc(t.x, t.y, 30, 0, Math.PI*2); ctx.fill(); ctx.shadowBlur = 0;
-                ctx.fillStyle = 'white'; ctx.font = 'bold 24px Arial'; ctx.textAlign = 'center'; ctx.fillText(t.emoji, t.x, t.y+8);
-                
-                if (t.type === 'wall') {
-                    ctx.fillStyle = '#1e293b'; ctx.fillRect(t.x-25, t.y-45, 50, 6); 
-                    ctx.fillStyle = '#10b981'; ctx.fillRect(t.x-25, t.y-45, (t.currentHp/t.currentMaxHp)*50, 6);
-                    if (t.currentHp <= 0) { gameState.towers.splice(i,1); continue; }
-                } else if (t.isLaser) {
-                    const tar = enemies.find(e => Math.hypot(e.x-t.x, e.y-t.y) < t.range);
-                    if (tar) { ctx.strokeStyle = t.color; ctx.lineWidth = 4; ctx.beginPath(); ctx.moveTo(t.x, t.y); ctx.lineTo(tar.x, tar.y); ctx.stroke(); tar.hp -= t.currentDmg/60; if (tar.hp <= 0) handleKill(tar); }
-                } else if (t.isStorm) {
-                    if (++t.timer >= t.currentSpd) {
-                        const targets = enemies.filter(e => Math.hypot(e.x-t.x, e.y-t.y) < t.range).slice(0, 3);
-                        if (targets.length > 0) {
-                            targets.forEach(tar => {
-                                drawLightning(t.x, t.y, tar.x, tar.y, t.color);
-                                tar.hp -= t.currentDmg;
-                                if (tar.hp <= 0) handleKill(tar);
-                            });
-                            t.timer = 0;
-                            playSound(150, 'square', 0.1, 0.05);
-                        }
-                    }
-                } else {
-                    if (++t.timer >= t.currentSpd) {
-                        const tar = enemies.find(e => Math.hypot(e.x-t.x, e.y-t.y) < t.range);
-                        if (tar) { projectiles.push({ x: t.x, y: t.y, target:tar, color: t.color, dmg: t.currentDmg, spd: t.p_spd, type: t.type, isFreeze: t.isFreeze, level: t.level }); t.timer = 0; }
-                    }
-                }
+            if (gameState.isWaveActive && enemies.length === 0) {
+                gameState.isWaveActive = false; gameState.wave++; updateUI(); showAlert(`WAVE CLEARED`, "emerald");
+                if (gameState.wave > (gameState.difficulty === 'easy' ? 20 : 35)) endGame(true);
             }
             
+            ctx.fillStyle = '#020617'; ctx.fillRect(0,0,canvas.width,canvas.height);
+            const wps = mapWays[selectedMapIdx];
+            ctx.strokeStyle = '#0f172a'; ctx.lineWidth = 65; ctx.lineCap = 'round'; ctx.beginPath(); ctx.moveTo(wps[0].x, wps[0].y); wps.forEach(w => ctx.lineTo(w.x, w.y)); ctx.stroke();
+            
+            if (selectedPlacement) {
+                const t = towerData[selectedPlacement]; ctx.beginPath(); ctx.arc(mousePos.x, mousePos.y, t.range, 0, Math.PI*2);
+                ctx.fillStyle = t.color + "33"; ctx.fill(); ctx.strokeStyle = t.color; ctx.setLineDash([10, 5]); ctx.stroke(); ctx.setLineDash([]);
+            }
+
+            gameState.towers.forEach((t) => {
+                ctx.beginPath(); ctx.arc(t.x, t.y, t.range, 0, Math.PI * 2); ctx.fillStyle = t.color + "15"; ctx.fill();
+                ctx.shadowBlur = 20; ctx.shadowColor = t.color; ctx.fillStyle = t.color; ctx.beginPath(); ctx.arc(t.x, t.y, 30, 0, Math.PI*2); ctx.fill(); ctx.shadowBlur = 0;
+                ctx.fillStyle = 'white'; ctx.font = '24px Arial'; ctx.textAlign = 'center'; ctx.fillText(t.emoji, t.x, t.y+8);
+                if (t.isFriend) { ctx.strokeStyle = "#fff5"; ctx.stroke(); }
+                
+                if (t.type === 'wall') {
+                    ctx.fillStyle = '#1e293b'; ctx.fillRect(t.x-25, t.y-45, 50, 6); ctx.fillStyle = '#10b981'; ctx.fillRect(t.x-25, t.y-45, (t.currentHp/t.currentMaxHp)*50, 6);
+                } else {
+                    if (++t.timer >= t.currentSpd) {
+                        const target = enemies.find(e => Math.hypot(e.x-t.x, e.y-t.y) < t.range);
+                        if (target) { projectiles.push({ x: t.x, y: t.y, target, color: t.color, dmg: t.currentDmg, spd: t.p_spd, type: t.type, isFreeze: t.isFreeze, level: t.level }); t.timer = 0; }
+                    }
+                }
+            });
+
             for(let i=enemies.length-1; i>=0; i--) {
                 const e = enemies[i];
-                if (e.frozen > 0) e.frozen--;
-                else {
-                    const wall = gameState.towers.find(t => t.type === 'wall' && Math.hypot(t.x-e.x, t.y-e.y) < 40);
-                    if (wall) { 
-                        wall.currentHp -= (e.isBoss || e.isUltimate ? 2 : 0.5); e.hp -= (wall.currentDmg / 40);
-                        if (e.hp <= 0) { handleKill(e, i); continue; } 
-                    } else {
-                        const tar = wps[e.wp+1]; const dist = Math.hypot(tar.x-e.x, tar.y-e.y);
-                        e.x += (tar.x-e.x)/dist * e.baseSpd * e.slowFactor; e.y += (tar.y-e.y)/dist * e.baseSpd * e.slowFactor;
-                        if (dist < 5 && ++e.wp >= wps.length-1) { 
-                            gameState.health -= (e.isUltimate ? 100 : (e.isBoss ? 40 : 10)); 
-                            enemies.splice(i,1); updateUI(); continue; 
+                if (isHost) { 
+                    if (e.frozen > 0) e.frozen--;
+                    else {
+                        const wall = gameState.towers.find(t => t.type === 'wall' && Math.hypot(t.x-e.x, t.y-e.y) < 40);
+                        if (wall) { 
+                            wall.currentHp -= (e.isBoss || e.isUltimate ? 2 : 0.5); e.hp -= (wall.currentDmg / 40);
+                            if (e.hp <= 0) { handleKill(e, i); continue; } 
+                            if (wall.currentHp <= 0) { gameState.towers = gameState.towers.filter(t => t.id !== wall.id); }
+                        } else {
+                            const tar = wps[e.wp+1]; const d = Math.hypot(tar.x-e.x, tar.y-e.y);
+                            e.x += (tar.x-e.x)/d * e.baseSpd * e.slowFactor; e.y += (tar.y-e.y)/d * e.baseSpd * e.slowFactor;
+                            if (d < 5 && ++e.wp >= wps.length-1) { gameState.health -= (e.isUltimate ? 100 : (e.isBoss ? 40 : 10)); enemies.splice(i,1); updateUI(); continue; }
                         }
                     }
                 }
                 ctx.fillStyle = e.frozen > 0 ? '#00f2ff' : (e.isBoss || e.isUltimate ? '#fde047' : '#ff003c');
                 ctx.beginPath(); ctx.arc(e.x, e.y, (e.isUltimate ? 45 : (e.isBoss ? 35 : 18)), 0, Math.PI*2); ctx.fill();
                 const bw = e.isUltimate ? 100 : (e.isBoss ? 80 : 40);
-                ctx.fillStyle = '#1e293b'; ctx.fillRect(e.x-bw/2, e.y-(e.isBoss||e.isUltimate?65:30), bw, 5);
-                ctx.fillStyle = '#ff003c'; ctx.fillRect(e.x-bw/2, e.y-(e.isBoss||e.isUltimate?65:30), (e.hp/e.maxHp)*bw, 5);
-                if (e.slowFactor < 1) e.slowFactor += 0.005;
+                ctx.fillStyle = '#1e293b'; ctx.fillRect(e.x-bw/2, e.y-30, bw, 5); ctx.fillStyle = '#ff003c'; ctx.fillRect(e.x-bw/2, e.y-30, (e.hp/e.maxHp)*bw, 5);
             }
             
             for(let i=projectiles.length-1; i>=0; i--) {
-                const p = projectiles[i]; const d = Math.hypot(p.target.x-p.x, p.target.y-p.y);
-                if (d < 15 || !enemies.includes(p.target)) {
-                    if (enemies.includes(p.target)) {
+                const p = projectiles[i]; const dist = Math.hypot(p.target.x-p.x, p.target.y-p.y);
+                if (dist < 15 || !enemies.includes(p.target)) {
+                    if (isHost && enemies.includes(p.target)) {
                         p.target.hp -= p.dmg;
-                        if (p.isFreeze) { p.target.slowFactor = 0.4; if (p.level === 3) p.target.frozen = 120; }
-                        if (p.type.startsWith('boom')) { 
-                            const rad = p.type === 'boom_pro' ? 120 : 90;
-                            enemies.forEach(ne => { if(Math.hypot(ne.x-p.x, ne.y-p.y) < rad) ne.hp -= p.dmg*0.4; }); 
-                        }
+                        if (p.isFreeze) p.target.slowFactor = 0.4;
                         if (p.target.hp <= 0) handleKill(p.target);
                     }
                     projectiles.splice(i,1); continue;
                 }
-                p.x += (p.target.x-p.x)/d * p.spd; p.y += (p.target.y-p.y)/d * p.spd;
+                p.x += (p.target.x-p.x)/dist * p.spd; p.y += (p.target.y-p.y)/dist * p.spd;
                 ctx.fillStyle = p.color; ctx.beginPath(); ctx.arc(p.x, p.y, 8, 0, Math.PI*2); ctx.fill();
             }
             requestAnimationFrame(gameLoop);
@@ -768,26 +771,14 @@
 
         async function endGame(won) {
             if (!gameActive) return; gameActive = false;
-            document.getElementById('gameHud').style.display = 'none';
-            document.getElementById('gameShop').style.display = 'none';
+            document.getElementById('gameHud').style.display = 'none'; document.getElementById('gameShop').style.display = 'none';
             document.getElementById('gameResult').classList.remove('hidden');
-            const reward = won ? (gameState.difficulty === 'easy' ? 1000 : 2500) : 0;
             if (won) {
-                globalCoins += reward;
-                if (gameState.difficulty === 'easy' && !questData.completed) {
-                    questData.progress = Math.min(3, questData.progress + 1);
-                    if (questData.progress >= 3) { questData.completed = true; globalCoins += 500; }
-                }
-                await saveProfile();
-                document.getElementById('resultTitle').innerText = "MISSION SUCCESS";
-                document.getElementById('resultTitle').style.color = "#10b981";
-                document.getElementById('resultReward').innerText = `+${reward} NeonCoins RECEIVED`;
-            } else {
-                document.getElementById('resultTitle').innerText = "SYSTEM BREACHED";
-                document.getElementById('resultTitle').style.color = "#ff003c";
-                document.getElementById('resultReward').innerText = "RETRY TO EARN COINS";
-            }
-            temporaryUnits = [];
+                const r = gameState.difficulty === 'easy' ? 1000 : 2500; globalCoins += r;
+                await saveProfile(); 
+                document.getElementById('resultTitle').innerText = "SUCCESS"; 
+                document.getElementById('resultReward').innerText = `+${r} COINS`;
+            } else { document.getElementById('resultTitle').innerText = "FAILED"; }
         }
     </script>
 </body>
