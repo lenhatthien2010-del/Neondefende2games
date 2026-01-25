@@ -249,10 +249,12 @@
         import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, doc, setDoc, getDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
+        // --- CONSTANTS ---
         const RANKS = ["NOOB", "BRONZE", "SILVER", "GOLD", "PLATINUM", "DIAMOND", "MASTER", "CHALLENGER"];
+        
+        // --- GLOBAL STATE ---
         let user = null, isVip = false, globalCoins = 0, usedCodes = [], ownedUnits = ['scout', 'sniper', 'boom', 'wall'], temporaryUnits = []; 
         let rankIndex = 0, matchCount = 0;
-
         let gameActive = false, selectedMapIdx = 0, selectedDiffVal = 'easy';
         let gameState = { money: 2000, wave: 1, towers: [], health: 100, maxHealth: 100, isWaveActive: false, difficulty: 'easy', vipTimer: 0, repairsLeft: 2 };
         let enemies = [], projectiles = [], particles = [], mousePos = { x: 0, y: 0 }, selectedPlacement = null, selectedTowerId = null;
@@ -278,7 +280,7 @@
             { id: 'freeze', name: 'FREEZE', emoji: '❄️', cost: 17000, desc: 'Cryogenic slowing.' },
             { id: 'boom_pro', name: 'BOOM', emoji: '💥', cost: 14000, desc: 'Tactical nuke.' },
             { id: 'electric', name: 'ELECTRIC', emoji: '⚡️✨️', cost: 50000, desc: 'Chain Lightning.' },
-            { id: 'mystery', name: 'MYSTERY UNIT', emoji: '❓', cost: 99999, desc: '...', isMystery: true }
+            { id: 'mystery', name: 'MYSTERY UNIT', emoji: '❓', cost: 99999, desc: 'SECRET POWER...', isMystery: true }
         ];
 
         const normalShopItems = [
@@ -287,9 +289,10 @@
             { id: 'freeze', name: 'FREEZE (Match)', emoji: '❄️', cost: 250, desc: 'Single match use.' },
             { id: 'boom_pro', name: 'BOOM (Match)', emoji: '💥', cost: 300, desc: 'Single match use.' },
             { id: 'electric', name: 'ELECTRIC (Match)', emoji: '⚡️✨️', cost: 3000, desc: 'Lightning strike.' },
-            { id: 'mystery', name: 'MYSTERY UNIT', emoji: '❓', cost: 99999, desc: '...', isMystery: true }
+            { id: 'mystery', name: 'MYSTERY UNIT', emoji: '❓', cost: 99999, desc: 'LOCKED...', isMystery: true }
         ];
 
+        // --- INITIALIZATION ---
         const initGame = async () => {
             const loadingBar = document.getElementById('loadingBar');
             const loadingScreen = document.getElementById('loadingScreen');
@@ -342,10 +345,10 @@
                                 }
                                 updateMenuUI();
                                 renderInGameShop();
-                            }, (err) => console.log("Firestore error"));
+                            }, (err) => console.log("Firestore error - switching to local save"));
                         }
                     });
-                } catch(e) { console.error("Firebase init failed"); }
+                } catch(e) { console.error("Firebase connection unavailable"); }
             }
         };
 
@@ -377,6 +380,7 @@
             }
         }
 
+        // --- UI RENDERING ---
         function updateMenuUI() {
             document.getElementById('globalCoins').innerText = globalCoins.toLocaleString();
             const vipLabel = document.getElementById('vipLabel');
@@ -400,7 +404,6 @@
                 let amount = 500;
                 if (code === 'get3k') amount = 3000;
                 if (code === 'admin10k') amount = 10000;
-                
                 globalCoins += amount;
                 usedCodes.push(code);
                 await saveProfile();
@@ -441,36 +444,6 @@
             } else if (!temporaryUnits.includes(id) && !ownedUnits.includes(id)) showAlert("INSUFFICIENT COINS", false);
         };
 
-        async function endGame(won) {
-            if (!gameActive) return; gameActive = false;
-            document.getElementById('gameHud').classList.add('hidden');
-            document.getElementById('gameShop').style.display = 'none';
-            document.getElementById('gameResult').classList.remove('hidden');
-            
-            if (won) {
-                const reward = selectedDiffVal === 'easy' ? 1500 : 2500;
-                globalCoins += reward;
-                matchCount++;
-                if (matchCount >= 2) {
-                    rankIndex += (selectedDiffVal === 'easy' ? 1 : 2);
-                    matchCount = 0;
-                    showAlert(`RANK UP: ${RANKS[Math.min(rankIndex, RANKS.length-1)]}`, true);
-                }
-                await saveProfile();
-                document.getElementById('resultTitle').innerText = "MISSION SUCCESS";
-                document.getElementById('resultTitle').style.color = "#10b981";
-                document.getElementById('resultReward').innerText = `+${reward} NeonCoins RECEIVED`;
-            } else {
-                document.getElementById('resultTitle').innerText = "SYSTEM BREACHED";
-                document.getElementById('resultTitle').style.color = "#ff003c";
-                document.getElementById('resultReward').innerText = "RETRY TO EARN COINS";
-            }
-            temporaryUnits = [];
-        }
-
-        window.toggleUnitShop = (show) => { document.getElementById('unitShopModal').style.display = show ? 'flex' : 'none'; if (show) renderUnitShop(); };
-        window.toggleNormalShop = (show) => { document.getElementById('normalShopModal').style.display = show ? 'flex' : 'none'; if (show) renderNormalShop(); };
-
         function renderUnitShop() {
             const list = document.getElementById('unitShopList');
             document.getElementById('shopCoins').innerText = globalCoins.toLocaleString();
@@ -489,7 +462,7 @@
                                 <div class="text-[9px] text-purple-500/80 font-bold uppercase tracking-wider">${item.desc}</div>
                             </div>
                         </div>
-                        <button disabled class="px-4 py-2 rounded-xl text-[10px] font-bold bg-purple-900/20 text-purple-400/50 border border-purple-500/20">COMING SOON</button>`;
+                        <button disabled class="px-4 py-2 rounded-xl text-[10px] font-bold bg-purple-900/20 text-purple-400/50 border border-purple-500/20">LOCKED</button>`;
                 } else {
                     const priceText = owned ? 'OWNED' : item.cost.toLocaleString() + ' COINS';
                     div.innerHTML = `
@@ -524,7 +497,7 @@
                                 <div class="text-[9px] text-purple-500/80 font-bold uppercase">${item.desc}</div>
                             </div>
                         </div>
-                        <button disabled class="px-4 py-2 rounded-xl text-[10px] font-bold bg-purple-900/20 text-purple-400/50 border border-purple-500/20">COMING SOON</button>`;
+                        <button disabled class="px-4 py-2 rounded-xl text-[10px] font-bold bg-purple-900/20 text-purple-400/50 border border-purple-500/20">LOCKED</button>`;
                 } else {
                     const priceText = available ? 'READY' : item.cost.toLocaleString() + ' COINS';
                     div.innerHTML = `
@@ -556,18 +529,12 @@
             });
         }
 
-        function showAlert(msg, isSuccess = true) {
-            const alertContainer = document.getElementById('customAlert');
-            const el = document.createElement('div');
-            el.className = `px-6 py-2 rounded-full font-bold text-xs bg-slate-900 border border-cyan-500/30 text-cyan-400 mb-2 shadow-lg transition-opacity duration-300 ${isSuccess ? 'alert-neon-green' : 'alert-neon-red'}`;
-            el.innerText = msg; alertContainer.appendChild(el);
-            setTimeout(() => { el.classList.add('opacity-0'); setTimeout(() => el.remove(), 300); }, 3000);
-        }
-
+        // --- GAME LOGIC ---
         const mapWays = [[{x:-50,y:400}, {x:250,y:400}, {x:250,y:150}, {x:600,y:150}, {x:600,y:600}, {x:950,y:600}, {x:950,y:350}, {x:1250,y:350}], [{x:150,y:-50}, {x:150,y:600}, {x:500,y:600}, {x:500,y:200}, {x:850,y:200}, {x:850,y:950}]];
+
         window.selectMap = (i) => { selectedMapIdx = i; document.querySelectorAll('.map-btn').forEach(b => b.classList.remove('selected')); document.getElementById('map'+i).classList.add('selected'); };
         window.selectDiff = (d) => { selectedDiffVal = d; document.querySelectorAll('.diff-btn').forEach(b => b.classList.remove('selected')); document.getElementById('diff' + d.charAt(0).toUpperCase() + d.slice(1)).classList.add('selected'); };
-        
+
         window.startGame = () => { 
             document.getElementById('mainMenu').classList.add('hidden'); 
             document.getElementById('gameHud').classList.remove('hidden'); 
@@ -581,7 +548,44 @@
             requestAnimationFrame(gameLoop); 
         };
 
-        function resize() { const viewport = document.querySelector('.game-viewport'); const availH = viewport.clientHeight, availW = viewport.clientWidth; const intW = 1200, intH = 800; const ratio = intW / intH; let w = availW, h = w / ratio; if (h > availH) { h = availH; w = h * ratio; } canvas.style.width = `${w}px`; canvas.style.height = `${h}px`; canvas.width = intW; canvas.height = intH; }
+        async function endGame(won) {
+            if (!gameActive) return; gameActive = false;
+            document.getElementById('gameHud').classList.add('hidden');
+            document.getElementById('gameShop').style.display = 'none';
+            document.getElementById('gameResult').classList.remove('hidden');
+            
+            if (won) {
+                const reward = selectedDiffVal === 'easy' ? 1500 : 2500;
+                globalCoins += reward;
+                matchCount++;
+                if (matchCount >= 2) {
+                    rankIndex += (selectedDiffVal === 'easy' ? 1 : 2);
+                    matchCount = 0;
+                    showAlert(`RANK UP: ${RANKS[Math.min(rankIndex, RANKS.length-1)]}`, true);
+                }
+                await saveProfile();
+                document.getElementById('resultTitle').innerText = "MISSION SUCCESS";
+                document.getElementById('resultTitle').style.color = "#10b981";
+                document.getElementById('resultReward').innerText = `+${reward} NeonCoins RECEIVED`;
+            } else {
+                document.getElementById('resultTitle').innerText = "SYSTEM BREACHED";
+                document.getElementById('resultTitle').style.color = "#ff003c";
+                document.getElementById('resultReward').innerText = "RETRY TO EARN COINS";
+            }
+            temporaryUnits = [];
+        }
+
+        // --- RENDER & UPDATE ---
+        function resize() { 
+            const viewport = document.querySelector('.game-viewport'); 
+            const availH = viewport.clientHeight, availW = viewport.clientWidth; 
+            const intW = 1200, intH = 800; 
+            const ratio = intW / intH; 
+            let w = availW, h = w / ratio; 
+            if (h > availH) { h = availH; w = h * ratio; } 
+            canvas.style.width = `${w}px`; canvas.style.height = `${h}px`; 
+            canvas.width = intW; canvas.height = intH; 
+        }
         window.addEventListener('resize', resize);
         
         canvas.addEventListener('pointermove', (e) => { const rect = canvas.getBoundingClientRect(); mousePos.x = (e.clientX - rect.left) * (canvas.width / rect.width); mousePos.y = (e.clientY - rect.top) * (canvas.height / rect.height); });
@@ -606,90 +610,6 @@
         });
 
         function isNearPath(x, y, dist) { const wps = mapWays[selectedMapIdx]; for (let i=0; i < wps.length-1; i++) { const p1 = wps[i], p2 = wps[i+1], L2 = Math.pow(p2.x-p1.x, 2) + Math.pow(p2.y-p1.y, 2); if (L2 === 0) continue; let t = ((x-p1.x)*(p2.x-p1.x) + (y-p1.y)*(p2.y-p1.y)) / L2; t = Math.max(0, Math.min(1, t)); const dx = x - (p1.x + t*(p2.x-p1.x)), dy = y - (p1.y + t*(p2.y-p1.y)); if (Math.sqrt(dx*dx + dy*dy) < dist) return true; } return false; }
-        
-        function openUpgrade(tower, sx, sy) {
-            const menu = document.getElementById('upgradeMenu'); document.getElementById('unitName').innerText = tower.name;
-            let stats = tower.type === 'wall' ? `Reflect: ${tower.currentDmg} | HP: ${Math.floor(tower.currentHp)}` : `Dmg: ${tower.currentDmg} | Spd: ${(tower.currentSpd/60).toFixed(1)}s`;
-            document.getElementById('unitStats').innerText = stats; document.getElementById('upgradeLevel').innerText = `Upgrades: ${tower.level}/3`;
-            const sellVal = Math.floor(tower.totalInvested * 0.6); document.getElementById('sellValue').innerText = `$${sellVal}`;
-            const upBtn = document.getElementById('upgradeBtn');
-            if (tower.level >= 3) { upBtn.innerText = "MAX POWER"; upBtn.onclick = null; }
-            else {
-                upBtn.innerText = `UPGRADE ($${tower.upgradeCost})`;
-                upBtn.onclick = () => { 
-                    if (gameState.money >= tower.upgradeCost) { 
-                        gameState.money -= tower.upgradeCost; 
-                        tower.level++; 
-                        if (tower.type !== 'wall') { 
-                            tower.currentDmg = Math.floor(tower.currentDmg + (tower.maxDmg - tower.dmg)/3); 
-                            if (!tower.isElectric) tower.currentSpd = Math.max(tower.maxSpd, tower.currentSpd - (tower.spd - tower.maxSpd)/3); 
-                            tower.range += 40; 
-                        } else { 
-                            tower.currentMaxHp += 200; tower.currentHp += 200; 
-                        } 
-                        tower.totalInvested += tower.upgradeCost; 
-                        tower.upgradeCost = Math.floor(tower.upgradeCost * 1.5); 
-                        updateUI(); 
-                        openUpgrade(tower, sx, sy); 
-                    } else showAlert("INSUFFICIENT COINS", false);
-                };
-            }
-            menu.style.left = `${Math.min(window.innerWidth-280, Math.max(20, sx-130))}px`; menu.style.top = `${Math.max(20, sy-220)}px`; menu.classList.remove('hidden');
-            document.getElementById('sellBtn').onclick = () => { gameState.money += sellVal; gameState.towers = gameState.towers.filter(t => t.id !== tower.id); updateUI(); window.closeUpgradeMenu(); };
-        }
-        
-        window.closeUpgradeMenu = () => { document.getElementById('upgradeMenu').classList.add('hidden'); selectedTowerId = null; };
-        
-        function updateUI() { 
-            document.getElementById('money').innerText = Math.floor(gameState.money); 
-            document.getElementById('wave').innerText = gameState.wave; 
-            document.getElementById('healthBar').style.width = `${(gameState.health / gameState.maxHealth) * 100}%`; 
-            const btn = document.getElementById('nextWaveBtn'); 
-            btn.style.opacity = gameState.isWaveActive ? "0.5" : "1"; 
-            btn.style.pointerEvents = gameState.isWaveActive ? "none" : "auto"; 
-        }
-
-        function showDanger(text) {
-            const el = document.getElementById('dangerAlert');
-            el.innerHTML = text; el.style.display = 'block';
-            setTimeout(() => { el.style.display = 'none'; }, 4000);
-        }
-
-        document.getElementById('nextWaveBtn').onclick = () => {
-            if (gameState.isWaveActive) return; 
-            gameState.isWaveActive = true; 
-            updateUI(); 
-
-            const isEasy = gameState.difficulty === 'easy';
-            if (isEasy && gameState.wave === 17) {
-                showDanger("DANGER!!!<br>FINAL BOSS");
-            } else if (!isEasy && gameState.wave === 30) {
-                showDanger("DANGER!!!<br>FINAL BOSS");
-            } else if (gameState.wave % 5 === 0) {
-                showDanger("DANGER!!!<br>ELITE SWARM");
-            }
-
-            let c = 0, total = 8 + gameState.wave * 2; 
-            const wps = mapWays[selectedMapIdx];
-            let bossHp = 0;
-            if (isEasy && gameState.wave === 17) bossHp = 5000;
-            else if (!isEasy && gameState.wave === 30) bossHp = 45000;
-
-            const isBoss = (gameState.wave % 5 === 0) || (isEasy && gameState.wave === 17) || (!isEasy && gameState.wave === 30);
-
-            const itv = setInterval(() => { 
-                if (!gameActive) { clearInterval(itv); return; } 
-                const hp = bossHp > 0 ? bossHp : (isBoss ? 2000 : 80) + (gameState.wave * (isBoss ? 1500 : 100)); 
-                enemies.push({ 
-                    x:wps[0].x, y:wps[0].y, hp, maxHp:hp, 
-                    baseSpd: (isBoss ? 0.6 : 1.2) + (gameState.wave*0.05), 
-                    wp:0, isBoss, frozen:0, slowFactor:1 
-                }); 
-                if (++c >= (isBoss ? 1 : total)) clearInterval(itv); 
-            }, 800);
-        };
-
-        window.repairCore = () => { if (gameState.repairsLeft > 0 && gameState.health < gameState.maxHealth) { gameState.health = Math.min(gameState.maxHealth, gameState.health + 40); gameState.repairsLeft--; document.getElementById('repairCount').innerText = gameState.repairsLeft; updateUI(); if (gameState.repairsLeft === 0) document.getElementById('repairBtn').classList.add('hidden'); } };
 
         function gameLoop() {
             if (!gameActive) return; 
@@ -703,7 +623,8 @@
             }
             
             ctx.fillStyle = '#020617'; ctx.fillRect(0,0,canvas.width,canvas.height);
-            const wps = mapWays[selectedMapIdx]; ctx.strokeStyle = '#0f172a'; ctx.lineWidth = 65; ctx.lineCap = 'round'; ctx.beginPath(); ctx.moveTo(wps[0].x, wps[0].y); wps.forEach(w => ctx.lineTo(w.x, w.y)); ctx.stroke();
+            const wps = mapWays[selectedMapIdx]; 
+            ctx.strokeStyle = '#0f172a'; ctx.lineWidth = 65; ctx.lineCap = 'round'; ctx.beginPath(); ctx.moveTo(wps[0].x, wps[0].y); wps.forEach(w => ctx.lineTo(w.x, w.y)); ctx.stroke();
             
             if (selectedPlacement) { const t = towerData[selectedPlacement]; ctx.beginPath(); ctx.arc(mousePos.x, mousePos.y, t.range, 0, Math.PI*2); ctx.fillStyle = t.color + "33"; ctx.fill(); ctx.strokeStyle = t.color; ctx.setLineDash([10, 5]); ctx.stroke(); ctx.setLineDash([]); }
             
@@ -738,21 +659,106 @@
             requestAnimationFrame(gameLoop);
         }
 
+        // --- UTILS ---
         function handleKill(e, idxOverride = -1) { 
             const idx = idxOverride !== -1 ? idxOverride : enemies.indexOf(e); 
             if (idx === -1) return; 
             enemies.splice(idx,1); 
             const isEasy = gameState.difficulty === 'easy';
-            if (isEasy) {
-                gameState.money += e.isBoss ? 1000 : 100;
-                globalCoins += e.isBoss ? 10 : 1;
-            } else {
-                gameState.money += e.isBoss ? 1200 : 120;
-                globalCoins += e.isBoss ? 20 : 3;
-            }
+            if (isEasy) { gameState.money += e.isBoss ? 1000 : 100; globalCoins += e.isBoss ? 10 : 1; } 
+            else { gameState.money += e.isBoss ? 1200 : 120; globalCoins += e.isBoss ? 20 : 3; }
             saveProfile(); updateUI(); 
         }
+
+        function showAlert(msg, isSuccess = true) {
+            const alertContainer = document.getElementById('customAlert');
+            const el = document.createElement('div');
+            el.className = `px-6 py-2 rounded-full font-bold text-xs bg-slate-900 border border-cyan-500/30 text-cyan-400 mb-2 shadow-lg transition-opacity duration-300 ${isSuccess ? 'alert-neon-green' : 'alert-neon-red'}`;
+            el.innerText = msg; alertContainer.appendChild(el);
+            setTimeout(() => { el.classList.add('opacity-0'); setTimeout(() => el.remove(), 300); }, 3000);
+        }
+
+        function showDanger(text) {
+            const el = document.getElementById('dangerAlert');
+            el.innerHTML = text; el.style.display = 'block';
+            setTimeout(() => { el.style.display = 'none'; }, 4000);
+        }
+
+        document.getElementById('nextWaveBtn').onclick = () => {
+            if (gameState.isWaveActive) return; 
+            gameState.isWaveActive = true; 
+            updateUI(); 
+
+            const isEasy = gameState.difficulty === 'easy';
+            if (isEasy && gameState.wave === 17) showDanger("DANGER!!!<br>FINAL BOSS");
+            else if (!isEasy && gameState.wave === 30) showDanger("DANGER!!!<br>FINAL BOSS");
+            else if (gameState.wave % 5 === 0) showDanger("DANGER!!!<br>ELITE SWARM");
+
+            let c = 0, total = 8 + gameState.wave * 2; 
+            const wps = mapWays[selectedMapIdx];
+            let bossHp = 0;
+            if (isEasy && gameState.wave === 17) bossHp = 5000;
+            else if (!isEasy && gameState.wave === 30) bossHp = 45000;
+
+            const isBoss = (gameState.wave % 5 === 0) || (isEasy && gameState.wave === 17) || (!isEasy && gameState.wave === 30);
+
+            const itv = setInterval(() => { 
+                if (!gameActive) { clearInterval(itv); return; } 
+                const hp = bossHp > 0 ? bossHp : (isBoss ? 2000 : 80) + (gameState.wave * (isBoss ? 1500 : 100)); 
+                enemies.push({ 
+                    x:wps[0].x, y:wps[0].y, hp, maxHp:hp, 
+                    baseSpd: (isBoss ? 0.6 : 1.2) + (gameState.wave*0.05), 
+                    wp:0, isBoss, frozen:0, slowFactor:1 
+                }); 
+                if (++c >= (isBoss ? 1 : total)) clearInterval(itv); 
+            }, 800);
+        };
+
+        window.repairCore = () => { if (gameState.repairsLeft > 0 && gameState.health < gameState.maxHealth) { gameState.health = Math.min(gameState.maxHealth, gameState.health + 40); gameState.repairsLeft--; document.getElementById('repairCount').innerText = gameState.repairsLeft; updateUI(); if (gameState.repairsLeft === 0) document.getElementById('repairBtn').classList.add('hidden'); } };
+
+        function openUpgrade(tower, sx, sy) {
+            const menu = document.getElementById('upgradeMenu'); document.getElementById('unitName').innerText = tower.name;
+            let stats = tower.type === 'wall' ? `Reflect: ${tower.currentDmg} | HP: ${Math.floor(tower.currentHp)}` : `Dmg: ${tower.currentDmg} | Spd: ${(tower.currentSpd/60).toFixed(1)}s`;
+            document.getElementById('unitStats').innerText = stats; document.getElementById('upgradeLevel').innerText = `Upgrades: ${tower.level}/3`;
+            const sellVal = Math.floor(tower.totalInvested * 0.6); document.getElementById('sellValue').innerText = `$${sellVal}`;
+            const upBtn = document.getElementById('upgradeBtn');
+            if (tower.level >= 3) { upBtn.innerText = "MAX POWER"; upBtn.onclick = null; }
+            else {
+                upBtn.innerText = `UPGRADE ($${tower.upgradeCost})`;
+                upBtn.onclick = () => { 
+                    if (gameState.money >= tower.upgradeCost) { 
+                        gameState.money -= tower.upgradeCost; 
+                        tower.level++; 
+                        if (tower.type !== 'wall') { 
+                            tower.currentDmg = Math.floor(tower.currentDmg + (tower.maxDmg - tower.dmg)/3); 
+                            if (!tower.isElectric) tower.currentSpd = Math.max(tower.maxSpd, tower.currentSpd - (tower.spd - tower.maxSpd)/3); 
+                            tower.range += 40; 
+                        } else { tower.currentMaxHp += 200; tower.currentHp += 200; } 
+                        tower.totalInvested += tower.upgradeCost; 
+                        tower.upgradeCost = Math.floor(tower.upgradeCost * 1.5); 
+                        updateUI(); 
+                        openUpgrade(tower, sx, sy); 
+                    } else showAlert("INSUFFICIENT COINS", false);
+                };
+            }
+            menu.style.left = `${Math.min(window.innerWidth-280, Math.max(20, sx-130))}px`; menu.style.top = `${Math.max(20, sy-220)}px`; menu.classList.remove('hidden');
+            document.getElementById('sellBtn').onclick = () => { gameState.money += sellVal; gameState.towers = gameState.towers.filter(t => t.id !== tower.id); updateUI(); window.closeUpgradeMenu(); };
+        }
         
+        window.closeUpgradeMenu = () => { document.getElementById('upgradeMenu').classList.add('hidden'); selectedTowerId = null; };
+
+        function updateUI() { 
+            document.getElementById('money').innerText = Math.floor(gameState.money); 
+            document.getElementById('wave').innerText = gameState.wave; 
+            document.getElementById('healthBar').style.width = `${(gameState.health / gameState.maxHealth) * 100}%`; 
+            const btn = document.getElementById('nextWaveBtn'); 
+            btn.style.opacity = gameState.isWaveActive ? "0.5" : "1"; 
+            btn.style.pointerEvents = gameState.isWaveActive ? "none" : "auto"; 
+        }
+
+        window.toggleUnitShop = (show) => { document.getElementById('unitShopModal').style.display = show ? 'flex' : 'none'; if (show) renderUnitShop(); };
+        window.toggleNormalShop = (show) => { document.getElementById('normalShopModal').style.display = show ? 'flex' : 'none'; if (show) renderNormalShop(); };
+
         window.addEventListener('load', initGame);
     </script>
 </body>
