@@ -323,6 +323,7 @@
                 loadingBar.style.width = progress + '%';
             }, 100);
 
+            // BƯỚC QUAN TRỌNG: Load dữ liệu từ LocalStorage trước (dùng key v1.3 để giữ tiến trình)
             loadLocalData();
 
             const firebaseConfigStr = typeof __firebase_config !== 'undefined' ? __firebase_config : null;
@@ -366,7 +367,8 @@
         };
 
         function loadLocalData() {
-            const local = localStorage.getItem('neon_defense_save_v1.4');
+            // SỬ DỤNG LẠI KEY CỦA V1.3 ĐỂ LẤY DỮ LIỆU CŨ
+            const local = localStorage.getItem('neon_defense_save_v1.3');
             if (local) {
                 const data = JSON.parse(local);
                 globalCoins = data.coins ?? 0;
@@ -383,7 +385,8 @@
             const saveData = { 
                 coins: globalCoins, isVip, ownedUnits, usedCodes, rankIndex, matchCount, updatedAt: Date.now() 
             };
-            localStorage.setItem('neon_defense_save_v1.4', JSON.stringify(saveData));
+            // TIẾP TỤC LƯU VÀO KEY V1.3 ĐỂ ĐẢM BẢO BỀN VỮNG
+            localStorage.setItem('neon_defense_save_v1.3', JSON.stringify(saveData));
             if (user) {
                 const db = dbInjected || getFirestore();
                 const appId = typeof __app_id !== 'undefined' ? __app_id : 'neon-defend-extreme-local';
@@ -688,7 +691,6 @@
 
                 ctx.fillStyle = 'white'; ctx.font = 'bold 24px Arial'; ctx.textAlign = 'center'; ctx.fillText(t.emoji, t.x, t.y+8);
                 
-                // Hiệu ứng vô hiệu hóa
                 if(t.disabledTimer > 0) {
                     ctx.fillStyle = 'rgba(255, 0, 60, 0.4)'; ctx.beginPath(); ctx.arc(t.x, t.y, 30, 0, Math.PI*2); ctx.fill();
                     ctx.fillStyle = 'white'; ctx.font = 'bold 12px Orbitron'; ctx.fillText("STUNNED", t.x, t.y-35);
@@ -720,14 +722,12 @@
                         e.x += (tar.x-e.x)/dist * e.baseSpd * e.slowFactor; 
                         e.y += (tar.y-e.y)/dist * e.baseSpd * e.slowFactor; 
                         
-                        // Kỹ năng Boss Speed Stuner
                         if(e.isStunner) {
-                            if(++e.stunCooldown >= 180) { // Mỗi 3 giây
+                            if(++e.stunCooldown >= 180) { 
                                 const availableUnits = gameState.towers.filter(t => t.disabledTimer <= 0);
                                 if(availableUnits.length > 0) {
                                     const randomUnit = availableUnits[Math.floor(Math.random() * availableUnits.length)];
-                                    randomUnit.disabledTimer = 300; // 5 giây (60fps * 5)
-                                    // Bắn tia stun
+                                    randomUnit.disabledTimer = 300; 
                                     ctx.strokeStyle = '#ff003c'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(e.x, e.y); ctx.lineTo(randomUnit.x, randomUnit.y); ctx.stroke();
                                 }
                                 e.stunCooldown = 0;
@@ -856,7 +856,6 @@
             
             if (tower.level >= maxLvl) { upBtn.innerText = "MAX POWER"; upBtn.onclick = null; }
             else {
-                // Logic giá nâng cấp đặc biệt cho Electric
                 let currentUpgradeCost = tower.upgradeCost;
                 if(tower.type === 'electric' && tower.level === 4) currentUpgradeCost = 5000;
 
