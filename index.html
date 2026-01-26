@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Neon Defense - Extreme Glow v.1.3</title>
+    <title>Neon Defense - Extreme Glow v.1.4</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&display=swap');
@@ -29,6 +29,12 @@
         .neon-title-loading { font-size: clamp(2rem, 8vw, 4rem); font-weight: 900; color: var(--neon-blue); text-shadow: 0 0 10px var(--neon-blue), 0 0 30px var(--neon-blue); text-align: center; letter-spacing: 0.1em; }
         .loading-container { width: 250px; margin-top: 2rem; text-align: center; }
 
+        /* Sidebar Styles */
+        #sideMenu { position: fixed; left: -300px; top: 0; bottom: 0; width: 280px; z-index: 100; transition: 0.4s cubic-bezier(0.4, 0, 0.2, 1); background: rgba(2, 6, 23, 0.95); backdrop-filter: blur(20px); border-right: 1px solid rgba(0, 242, 255, 0.2); padding: 20px; }
+        #sideMenu.active { left: 0; }
+        .sidebar-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 99; display: none; }
+        .sidebar-overlay.active { display: block; }
+
         #gameShop { 
             position: absolute; right: 10px; top: 120px; 
             height: 280px; 
@@ -51,52 +57,20 @@
         
         @keyframes shake { 0%, 100% { transform: translateX(0); } 25% { transform: translateX(-5px); } 75% { transform: translateX(5px); } }
         .vip-rank { color: #fde047; text-shadow: 0 0 10px #fde047; font-weight: bold; }
-        #unitShopModal, #normalShopModal { position: fixed; inset: 0; background: rgba(0,0,0,0.9); z-index: 100; display: none; align-items: center; justify-content: center; }
+        
+        #unitShopModal, #normalShopModal, #inventoryModal { position: fixed; inset: 0; background: rgba(0,0,0,0.9); z-index: 110; display: none; align-items: center; justify-content: center; }
         .game-viewport { flex-grow: 1; position: relative; display: flex; align-items: center; justify-content: center; overflow: hidden; background: #020617; }
         
-        /* Hiệu ứng Mystery Unit Mới */
-        .mystery-unit-card { 
-            position: relative; 
-            overflow: hidden;
-            border: 2px solid rgba(188, 19, 254, 0.2) !important;
-            background: rgba(188, 19, 254, 0.05) !important;
-        }
-        .mystery-unit-card::before {
-            content: '';
-            position: absolute;
-            top: -50%;
-            left: -50%;
-            width: 200%;
-            height: 200%;
-            background: conic-gradient(
-                transparent, 
-                transparent, 
-                transparent, 
-                var(--neon-purple)
-            );
-            animation: rotate-border 3s linear infinite;
-            z-index: 0;
-        }
-        .mystery-unit-card::after {
-            content: '';
-            position: absolute;
-            inset: 2px;
-            background: #0f172a;
-            border-radius: 14px;
-            z-index: 1;
-        }
-        .mystery-unit-card > div, .mystery-unit-card > button { 
-            position: relative; 
-            z-index: 2; 
-        }
-
-        @keyframes rotate-border {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
+        .mystery-unit-card { position: relative; overflow: hidden; border: 2px solid rgba(188, 19, 254, 0.2) !important; background: rgba(188, 19, 254, 0.05) !important; }
+        .mystery-unit-card::before { content: ''; position: absolute; top: -50%; left: -50%; width: 200%; height: 200%; background: conic-gradient(transparent, transparent, transparent, var(--neon-purple)); animation: rotate-border 3s linear infinite; z-index: 0; }
+        .mystery-unit-card::after { content: ''; position: absolute; inset: 2px; background: #0f172a; border-radius: 14px; z-index: 1; }
+        .mystery-unit-card > div, .mystery-unit-card > button { position: relative; z-index: 2; }
+        @keyframes rotate-border { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
 
         #dangerAlert { position: absolute; top: 30%; left: 50%; transform: translate(-50%, -50%); font-size: 3rem; font-weight: 900; color: #ff003c; text-shadow: 0 0 20px #ff003c; z-index: 60; pointer-events: none; text-align: center; display: none; animation: danger-blink 0.5s infinite; }
         @keyframes danger-blink { 0%, 100% { opacity: 1; transform: translate(-50%, -50%) scale(1); } 50% { opacity: 0.5; transform: translate(-50%, -50%) scale(1.1); } }
+        
+        .unit-disabled-overlay { position: absolute; inset: 0; background: rgba(255, 0, 60, 0.3); display: flex; align-items: center; justify-content: center; border-radius: 50%; z-index: 10; font-weight: bold; font-size: 10px; pointer-events: none; }
     </style>
 </head>
 <body class="main-container">
@@ -113,9 +87,35 @@
 
     <div id="customAlert"></div>
 
+    <!-- Sidebar Menu -->
+    <div id="sidebarOverlay" class="sidebar-overlay" onclick="window.toggleSidebar(false)"></div>
+    <div id="sideMenu">
+        <div class="flex justify-between items-center mb-10">
+            <h2 class="text-cyan-400 font-black italic">SYSTEM MENU</h2>
+            <button onclick="window.toggleSidebar(false)" class="text-red-500 font-bold text-xl">X</button>
+        </div>
+        <div class="flex flex-col gap-4">
+            <button onclick="window.openInventory()" class="w-full py-4 bg-white text-black font-black uppercase rounded-xl hover:bg-cyan-400 transition">INVENTORY</button>
+            <div class="relative">
+                <button disabled class="w-full py-4 bg-slate-900 border border-white/20 text-slate-500 font-black uppercase rounded-xl shadow-[0_0_10px_rgba(255,255,255,0.1)]">NEON SHOP</button>
+                <span class="absolute -top-2 -right-2 bg-white text-black text-[8px] px-2 py-1 rounded font-bold animate-pulse">COMING SOON</span>
+            </div>
+        </div>
+        <div class="mt-auto pt-10 text-[10px] text-slate-500 text-center uppercase tracking-widest">
+            Protocol v.1.4 Secure
+        </div>
+    </div>
+
     <div id="mainMenu" class="fixed inset-0 z-50 flex items-center justify-center bg-[#020617]">
         <div class="glass-panel p-8 rounded-3xl w-full max-w-2xl text-center border-cyan-500/30 overflow-y-auto max-h-screen m-4">
-            <h2 class="text-3xl font-black mb-2 text-cyan-400 drop-shadow-[0_0_10px_rgba(34,211,238,0.5)]">NEON DEFENSE <span class="text-sm opacity-50">v.1.3</span></h2>
+            <div class="flex items-center justify-center gap-4 mb-2">
+                <button onclick="window.toggleSidebar(true)" class="p-2 bg-cyan-900/30 rounded-lg border border-cyan-500/50 hover:bg-cyan-500/20 transition">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" class="text-cyan-400">
+                        <path d="M4 6h16M4 12h16M4 18h16"></path>
+                    </svg>
+                </button>
+                <h2 class="text-3xl font-black text-cyan-400 drop-shadow-[0_0_10px_rgba(34,211,238,0.5)]">NEON DEFENSE <span class="text-sm opacity-50">v.1.4</span></h2>
+            </div>
             
             <div class="flex justify-center gap-4 mb-6">
                 <div class="bg-slate-900 p-4 rounded-2xl border border-white/5 flex-1">
@@ -174,6 +174,7 @@
         </div>
     </div>
 
+    <!-- Modals -->
     <div id="unitShopModal" class="p-4">
         <div class="glass-panel p-6 rounded-3xl w-full max-w-xl">
             <div class="flex justify-between items-center mb-6">
@@ -193,6 +194,17 @@
             </div>
             <div class="grid grid-cols-1 gap-4 overflow-y-auto max-h-[60vh]" id="normalShopList"></div>
             <div class="mt-6 text-center text-[10px] text-slate-500">NeonCoins: <span class="text-yellow-500 font-bold" id="normalShopCoins">0</span></div>
+        </div>
+    </div>
+
+    <div id="inventoryModal" class="p-4">
+        <div class="glass-panel p-6 rounded-3xl w-full max-w-xl border-white/40">
+            <div class="flex justify-between items-center mb-6">
+                <h2 class="text-xl font-black text-white uppercase tracking-widest">Your Inventory</h2>
+                <button onclick="window.closeInventory()" class="text-red-500 font-black text-2xl hover:scale-110 transition">X</button>
+            </div>
+            <div class="grid grid-cols-2 sm:grid-cols-3 gap-4 overflow-y-auto max-h-[60vh]" id="inventoryList"></div>
+            <div class="mt-8 text-center text-[10px] text-slate-400 font-bold italic">ALL ACQUIRED PROTOCOLS LISTED ABOVE</div>
         </div>
     </div>
 
@@ -228,7 +240,7 @@
         <div id="upgradeMenu" class="absolute hidden glass-panel p-5 rounded-2xl z-40 w-64 border-cyan-500/40 shadow-xl shadow-cyan-500/10">
             <h3 id="unitName" class="font-black text-cyan-400 text-lg italic uppercase">UNIT</h3>
             <p id="unitStats" class="text-[11px] text-slate-400 mb-2 uppercase">Stats...</p>
-            <p id="upgradeLevel" class="text-[10px] text-yellow-500 font-bold mb-4">Upgrades: 0/3</p>
+            <p id="upgradeLevel" class="text-[10px] text-yellow-500 font-bold mb-4">Upgrades: 0/5</p>
             <div class="space-y-2">
                 <button id="upgradeBtn" class="neon-btn w-full py-3 bg-emerald-600 hover:bg-emerald-500 rounded-xl font-bold text-xs text-white">UPGRADE</button>
                 <button id="sellBtn" class="neon-btn w-full py-3 bg-red-900/40 border border-red-500/40 hover:bg-red-600 rounded-xl font-bold text-xs text-white">SELL (<span id="sellValue">$0</span>)</button>
@@ -249,10 +261,8 @@
         import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, doc, setDoc, getDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-        // --- CONSTANTS ---
         const RANKS = ["NOOB", "BRONZE", "SILVER", "GOLD", "PLATINUM", "DIAMOND", "MASTER", "CHALLENGER"];
         
-        // --- GLOBAL STATE ---
         let user = null, isVip = false, globalCoins = 0, usedCodes = [], ownedUnits = ['scout', 'sniper', 'boom', 'wall'], temporaryUnits = []; 
         let rankIndex = 0, matchCount = 0;
         let gameActive = false, selectedMapIdx = 0, selectedDiffVal = 'easy';
@@ -263,15 +273,19 @@
         const ctx = canvas.getContext('2d');
 
         const towerData = {
-            scout: { type: 'scout', name: "GUN", price: 150, range: 160, dmg: 40, maxDmg: 250, spd: 60, maxSpd: 30, color: "#00f2ff", emoji: "🔫", p_spd: 12, upgradeInit: 150 },
-            sniper: { type: 'sniper', name: "SNIPER", price: 500, range: 450, dmg: 100, maxDmg: 400, spd: 240, maxSpd: 30, color: "#bc13fe", emoji: "🎯", p_spd: 22, upgradeInit: 300 },
-            boom: { type: 'boom', name: "ROCKET", price: 850, range: 220, dmg: 200, maxDmg: 700, spd: 200, maxSpd: 60, color: "#ff003c", emoji: "🚀", p_spd: 8, upgradeInit: 500 },
-            ak47: { type: 'ak47', name: "MINI GUN", price: 1300, range: 250, dmg: 120, maxDmg: 800, spd: 60, maxSpd: 0, color: "#fde047", emoji: "🔫", p_spd: 15, upgradeInit: 1000 },
-            wall: { type: 'wall', name: "WALL", price: 1500, range: 60, dmg: 30, maxDmg: 30, spd: 0, color: "#10b981", emoji: "🚧", p_spd: 0, upgradeInit: 800, hp: 500, maxHp: 1200 },
-            lazer: { type: 'lazer', name: "LAZER", price: 2000, range: 300, dmg: 10, maxDmg: 1000, spd: 1, color: "#ff0000", emoji: "⚡", p_spd: 0, upgradeInit: 1000, isLaser: true },
-            freeze: { type: 'freeze', name: "FREEZE", price: 2200, range: 250, dmg: 20, maxDmg: 500, spd: 60, maxSpd: 60, color: "#00ffff", emoji: "❄️", p_spd: 10, upgradeInit: 1200, isFreeze: true },
-            boom_pro: { type: 'boom_pro', name: "BOOM", price: 3000, range: 350, dmg: 400, maxDmg: 1200, spd: 120, maxSpd: 120, color: "#ff8800", emoji: "💥", p_spd: 10, upgradeInit: 1500, isArea: true },
-            electric: { type: 'electric', name: "ELECTRIC", price: 4000, range: 320, dmg: 1000, maxDmg: 3000, spd: 1, maxSpd: 1, color: "#4ade80", emoji: "⚡️✨️", p_spd: 0, upgradeInit: 1200, isElectric: true }
+            scout: { type: 'scout', name: "GUN", price: 150, range: 160, dmg: 40, maxDmg: 250, spd: 60, maxSpd: 30, color: "#00f2ff", emoji: "🔫", p_spd: 12, upgradeInit: 150, maxLevel: 3 },
+            sniper: { type: 'sniper', name: "SNIPER", price: 500, range: 450, dmg: 100, maxDmg: 400, spd: 240, maxSpd: 30, color: "#bc13fe", emoji: "🎯", p_spd: 22, upgradeInit: 300, maxLevel: 3 },
+            boom: { type: 'boom', name: "ROCKET", price: 850, range: 220, dmg: 200, maxDmg: 700, spd: 200, maxSpd: 60, color: "#ff003c", emoji: "🚀", p_spd: 8, upgradeInit: 500, maxLevel: 3 },
+            ak47: { type: 'ak47', name: "MINI GUN", price: 1300, range: 250, dmg: 120, maxDmg: 800, spd: 60, maxSpd: 0, color: "#fde047", emoji: "🔫", p_spd: 15, upgradeInit: 1000, maxLevel: 3 },
+            wall: { type: 'wall', name: "WALL", price: 1500, range: 60, dmg: 30, maxDmg: 30, spd: 0, color: "#10b981", emoji: "🚧", p_spd: 0, upgradeInit: 800, hp: 500, maxHp: 1200, maxLevel: 3 },
+            lazer: { type: 'lazer', name: "LAZER", price: 2000, range: 300, dmg: 10, maxDmg: 1000, spd: 1, color: "#ff0000", emoji: "⚡", p_spd: 0, upgradeInit: 1000, isLaser: true, maxLevel: 3 },
+            freeze: { type: 'freeze', name: "FREEZE", price: 2200, range: 250, dmg: 20, maxDmg: 500, spd: 60, maxSpd: 60, color: "#00ffff", emoji: "❄️", p_spd: 10, upgradeInit: 1200, isFreeze: true, maxLevel: 3 },
+            boom_pro: { type: 'boom_pro', name: "BOOM", price: 3000, range: 350, dmg: 400, maxDmg: 1200, spd: 120, maxSpd: 120, color: "#ff8800", emoji: "💥", p_spd: 10, upgradeInit: 1500, isArea: true, maxLevel: 3 },
+            electric: { 
+                type: 'electric', name: "ELECTRIC", price: 4000, range: 320, 
+                dmg: 800, maxDmg: 2500, spd: 1, maxSpd: 1, color: "#4ade80", 
+                emoji: "⚡️✨️", p_spd: 0, upgradeInit: 1000, isElectric: true, maxLevel: 5 
+            }
         };
 
         const shopItems = [
@@ -292,7 +306,6 @@
             { id: 'mystery', name: 'MYSTERY UNIT', emoji: '❓', cost: 99999, desc: 'LOCKED...', isMystery: true }
         ];
 
-        // --- INITIALIZATION ---
         const initGame = async () => {
             const loadingBar = document.getElementById('loadingBar');
             const loadingScreen = document.getElementById('loadingScreen');
@@ -353,7 +366,7 @@
         };
 
         function loadLocalData() {
-            const local = localStorage.getItem('neon_defense_save_v1.3');
+            const local = localStorage.getItem('neon_defense_save_v1.4');
             if (local) {
                 const data = JSON.parse(local);
                 globalCoins = data.coins ?? 0;
@@ -370,7 +383,7 @@
             const saveData = { 
                 coins: globalCoins, isVip, ownedUnits, usedCodes, rankIndex, matchCount, updatedAt: Date.now() 
             };
-            localStorage.setItem('neon_defense_save_v1.3', JSON.stringify(saveData));
+            localStorage.setItem('neon_defense_save_v1.4', JSON.stringify(saveData));
             if (user) {
                 const db = dbInjected || getFirestore();
                 const appId = typeof __app_id !== 'undefined' ? __app_id : 'neon-defend-extreme-local';
@@ -379,6 +392,31 @@
                 } catch (e) { }
             }
         }
+
+        // --- SIDEBAR & INVENTORY ---
+        window.toggleSidebar = (show) => {
+            const menu = document.getElementById('sideMenu');
+            const overlay = document.getElementById('sidebarOverlay');
+            if(show) { menu.classList.add('active'); overlay.classList.add('active'); }
+            else { menu.classList.remove('active'); overlay.classList.remove('active'); }
+        };
+
+        window.openInventory = () => {
+            window.toggleSidebar(false);
+            const list = document.getElementById('inventoryList');
+            list.innerHTML = "";
+            ownedUnits.forEach(unitKey => {
+                const t = towerData[unitKey];
+                if(!t) return;
+                const div = document.createElement('div');
+                div.className = "bg-slate-900 border border-white/5 p-4 rounded-xl text-center flex flex-col items-center gap-2";
+                div.innerHTML = `<div class="text-3xl">${t.emoji}</div><div class="text-[10px] font-black text-cyan-400 uppercase">${t.name}</div>`;
+                list.appendChild(div);
+            });
+            document.getElementById('inventoryModal').style.display = 'flex';
+        };
+
+        window.closeInventory = () => { document.getElementById('inventoryModal').style.display = 'none'; };
 
         // --- UI RENDERING ---
         function updateMenuUI() {
@@ -402,27 +440,20 @@
             const codeLower = code.toLowerCase();
             
             if (codeLower === 'get3k' || codeLower === 'neondefendev1' || codeLower === 'admin10k' || codeLower === 'tlbcp40000' || code === '/g100000') {
-                if (usedCodes.includes(code)) { 
-                    showAlert("CODE ALREADY USED", false); 
-                    return; 
-                }
-                
+                if (usedCodes.includes(code)) { showAlert("CODE ALREADY USED", false); return; }
                 let amount = 0;
                 if (codeLower === 'get3k') amount = 3000;
                 else if (codeLower === 'neondefendev1') amount = 500;
                 else if (codeLower === 'admin10k') amount = 10000;
                 else if (codeLower === 'tlbcp40000') amount = 40000;
                 else if (code === '/g100000') amount = 100000;
-
                 globalCoins += amount;
                 usedCodes.push(code);
                 await saveProfile();
                 showAlert(`+${amount.toLocaleString()} NeonCoins`, true);
                 document.getElementById('cheatCode').value = "";
                 updateMenuUI();
-            } else {
-                showAlert("INVALID CODE", false);
-            }
+            } else { showAlert("INVALID CODE", false); }
         };
 
         window.buyVip = async () => {
@@ -591,7 +622,6 @@
             temporaryUnits = [];
         }
 
-        // --- RENDER & UPDATE ---
         function resize() { 
             const viewport = document.querySelector('.game-viewport'); 
             const availH = viewport.clientHeight, availW = viewport.clientWidth; 
@@ -612,7 +642,7 @@
                 if (gameState.money >= price) {
                     const near = isNearPath(x, y, 40), canPlace = (t.type === 'wall' ? near : !near) && !gameState.towers.some(ot => Math.hypot(ot.x-x, ot.y-y) < 55);
                     if (canPlace) { 
-                        gameState.towers.push({ ...t, x, y, level: 0, upgradeCost: t.upgradeInit, timer: 0, id: Date.now(), totalInvested: price, currentDmg: t.dmg, currentSpd: t.spd, currentHp: t.hp || 0, currentMaxHp: t.hp || 0, rotation: 0 }); 
+                        gameState.towers.push({ ...t, x, y, level: 0, upgradeCost: t.upgradeInit, timer: 0, id: Date.now(), totalInvested: price, currentDmg: t.dmg, currentSpd: t.spd, currentHp: t.hp || 0, currentMaxHp: t.hp || 0, rotation: 0, disabledTimer: 0 }); 
                         gameState.money -= price; 
                         updateUI(); 
                         selectedPlacement = null; 
@@ -646,32 +676,96 @@
             
             for(let i=gameState.towers.length-1; i>=0; i--) {
                 const t = gameState.towers[i]; 
+                
+                if(t.disabledTimer > 0) t.disabledTimer--;
+
                 ctx.beginPath(); ctx.arc(t.x, t.y, t.range, 0, Math.PI * 2); ctx.fillStyle = t.color + (selectedTowerId === t.id ? "25" : "15"); ctx.fill(); ctx.strokeStyle = t.color + (selectedTowerId === t.id ? "FF" : "99"); ctx.lineWidth = selectedTowerId === t.id ? 4 : 2; ctx.stroke(); 
-                ctx.fillStyle = t.color; ctx.beginPath(); ctx.arc(t.x, t.y, 30, 0, Math.PI*2); ctx.fill(); 
+                ctx.fillStyle = t.disabledTimer > 0 ? '#4b5563' : t.color; ctx.beginPath(); ctx.arc(t.x, t.y, 30, 0, Math.PI*2); ctx.fill(); 
 
                 if (t.isElectric) {
-                    t.rotation += 0.04; ctx.save(); ctx.translate(t.x, t.y); ctx.rotate(t.rotation); ctx.lineWidth = 4; ctx.beginPath(); const spikes = 16; const innerR = 38; const outerR = 48 + Math.sin(t.rotation * 8) * 8; for (let j = 0; j < spikes * 2; j++) { let r = j % 2 === 0 ? outerR : innerR; let angle = (Math.PI * 2 / (spikes * 2)) * j; ctx.lineTo(Math.cos(angle) * r, Math.sin(angle) * r); } ctx.closePath(); let grad = ctx.createLinearGradient(-40, -40, 40, 40); grad.addColorStop(0, '#4ade80'); grad.addColorStop(1, '#fde047'); ctx.strokeStyle = grad; ctx.shadowBlur = 15; ctx.shadowColor = '#4ade80'; ctx.stroke(); ctx.shadowBlur = 0; ctx.restore();
+                    t.rotation += 0.04; ctx.save(); ctx.translate(t.x, t.y); ctx.rotate(t.rotation); ctx.lineWidth = 4; ctx.beginPath(); const spikes = 16; const innerR = 38; const outerR = 48 + Math.sin(t.rotation * 8) * 8; for (let j = 0; j < spikes * 2; j++) { let r = j % 2 === 0 ? outerR : innerR; let angle = (Math.PI * 2 / (spikes * 2)) * j; ctx.lineTo(Math.cos(angle) * r, Math.sin(angle) * r); } ctx.closePath(); let grad = ctx.createLinearGradient(-40, -40, 40, 40); grad.addColorStop(0, '#4ade80'); grad.addColorStop(1, '#fde047'); ctx.strokeStyle = t.disabledTimer > 0 ? '#6b7280' : grad; ctx.shadowBlur = t.disabledTimer > 0 ? 0 : 15; ctx.shadowColor = '#4ade80'; ctx.stroke(); ctx.shadowBlur = 0; ctx.restore();
                 }
 
                 ctx.fillStyle = 'white'; ctx.font = 'bold 24px Arial'; ctx.textAlign = 'center'; ctx.fillText(t.emoji, t.x, t.y+8);
                 
-                if (t.type === 'wall') { 
-                    ctx.fillStyle = '#1e293b'; ctx.fillRect(t.x-25, t.y-45, 50, 6); ctx.fillStyle = '#10b981'; ctx.fillRect(t.x-25, t.y-45, (t.currentHp/t.currentMaxHp)*50, 6); if (t.currentHp <= 0) { gameState.towers.splice(i,1); continue; } 
-                } else if (t.isLaser) { 
-                    const tar = enemies.find(e => Math.hypot(e.x-t.x, e.y-t.y) < t.range); if (tar) { ctx.strokeStyle = t.color; ctx.lineWidth = 4; ctx.beginPath(); ctx.moveTo(t.x, t.y); ctx.lineTo(tar.x, tar.y); ctx.stroke(); tar.hp -= t.currentDmg/60; if (tar.hp <= 0) handleKill(tar); } 
-                } else if (t.isElectric) {
-                    if (++t.timer >= t.currentSpd) { const targets = enemies.filter(e => Math.hypot(e.x-t.x, e.y-t.y) < t.range).slice(0, 7); if (targets.length > 0) { ctx.save(); ctx.shadowBlur = 20; ctx.shadowColor = '#fde047'; ctx.beginPath(); ctx.moveTo(t.x, t.y); let currentDmg = t.currentDmg; targets.forEach((tar, idx) => { let midX = ( (idx === 0 ? t.x : targets[idx-1].x) + tar.x) / 2 + (Math.random()-0.5)*40; let midY = ( (idx === 0 ? t.y : targets[idx-1].y) + tar.y) / 2 + (Math.random()-0.5)*40; ctx.lineTo(midX, midY); ctx.lineTo(tar.x, tar.y); tar.hp -= (idx === 0 ? currentDmg : 200) / 10; if (tar.hp <= 0) handleKill(tar); }); let beamGrad = ctx.createLinearGradient(t.x, t.y, targets[0].x, targets[0].y); beamGrad.addColorStop(0, '#4ade80'); beamGrad.addColorStop(1, '#fde047'); ctx.strokeStyle = beamGrad; ctx.lineWidth = 3; ctx.stroke(); ctx.restore(); t.timer = 0; } }
-                } else { 
-                    if (++t.timer >= t.currentSpd) { const tar = enemies.find(e => Math.hypot(e.x-t.x, e.y-t.y) < t.range); if (tar) { projectiles.push({ x: t.x, y: t.y, target:tar, color: t.color, dmg: t.currentDmg, spd: t.p_spd, type: t.type, isFreeze: t.isFreeze, level: t.level }); t.timer = 0; } } 
+                // Hiệu ứng vô hiệu hóa
+                if(t.disabledTimer > 0) {
+                    ctx.fillStyle = 'rgba(255, 0, 60, 0.4)'; ctx.beginPath(); ctx.arc(t.x, t.y, 30, 0, Math.PI*2); ctx.fill();
+                    ctx.fillStyle = 'white'; ctx.font = 'bold 12px Orbitron'; ctx.fillText("STUNNED", t.x, t.y-35);
+                }
+
+                if (t.disabledTimer <= 0) {
+                    if (t.type === 'wall') { 
+                        ctx.fillStyle = '#1e293b'; ctx.fillRect(t.x-25, t.y-45, 50, 6); ctx.fillStyle = '#10b981'; ctx.fillRect(t.x-25, t.y-45, (t.currentHp/t.currentMaxHp)*50, 6); if (t.currentHp <= 0) { gameState.towers.splice(i,1); continue; } 
+                    } else if (t.isLaser) { 
+                        const tar = enemies.find(e => Math.hypot(e.x-t.x, e.y-t.y) < t.range); if (tar) { ctx.strokeStyle = t.color; ctx.lineWidth = 4; ctx.beginPath(); ctx.moveTo(t.x, t.y); ctx.lineTo(tar.x, tar.y); ctx.stroke(); tar.hp -= t.currentDmg/60; if (tar.hp <= 0) handleKill(tar); } 
+                    } else if (t.isElectric) {
+                        if (++t.timer >= t.currentSpd) { const targets = enemies.filter(e => Math.hypot(e.x-t.x, e.y-t.y) < t.range).slice(0, 7); if (targets.length > 0) { ctx.save(); ctx.shadowBlur = 20; ctx.shadowColor = '#fde047'; ctx.beginPath(); ctx.moveTo(t.x, t.y); let currentDmg = t.currentDmg; targets.forEach((tar, idx) => { let midX = ( (idx === 0 ? t.x : targets[idx-1].x) + tar.x) / 2 + (Math.random()-0.5)*40; let midY = ( (idx === 0 ? t.y : targets[idx-1].y) + tar.y) / 2 + (Math.random()-0.5)*40; ctx.lineTo(midX, midY); ctx.lineTo(tar.x, tar.y); tar.hp -= (idx === 0 ? currentDmg : 200) / 10; if (tar.hp <= 0) handleKill(tar); }); let beamGrad = ctx.createLinearGradient(t.x, t.y, targets[0].x, targets[0].y); beamGrad.addColorStop(0, '#4ade80'); beamGrad.addColorStop(1, '#fde047'); ctx.strokeStyle = beamGrad; ctx.lineWidth = 3; ctx.stroke(); ctx.restore(); t.timer = 0; } }
+                    } else { 
+                        if (++t.timer >= t.currentSpd) { const tar = enemies.find(e => Math.hypot(e.x-t.x, e.y-t.y) < t.range); if (tar) { projectiles.push({ x: t.x, y: t.y, target:tar, color: t.color, dmg: t.currentDmg, spd: t.p_spd, type: t.type, isFreeze: t.isFreeze, level: t.level }); t.timer = 0; } } 
+                    }
                 }
             }
             
             for(let i=enemies.length-1; i>=0; i--) {
-                const e = enemies[i]; if (e.frozen > 0) e.frozen--; else { const wall = gameState.towers.find(t => t.type === 'wall' && Math.hypot(t.x-e.x, t.y-e.y) < 40); if (wall) { wall.currentHp -= (e.isBoss ? 2 : 0.5); e.hp -= (wall.currentDmg / 40); if (e.hp <= 0) { handleKill(e, i); continue; } } else { const tar = wps[e.wp+1], dist = Math.hypot(tar.x-e.x, tar.y-e.y); e.x += (tar.x-e.x)/dist * e.baseSpd * e.slowFactor; e.y += (tar.y-e.y)/dist * e.baseSpd * e.slowFactor; if (dist < 5 && ++e.wp >= wps.length-1) { gameState.health -= (e.isBoss ? 40 : 10); enemies.splice(i,1); updateUI(); continue; } } }
-                ctx.fillStyle = e.frozen > 0 ? '#00f2ff' : (e.isBoss ? '#fde047' : '#ff003c'); ctx.beginPath(); ctx.arc(e.x, e.y, (e.isBoss ? 35 : 18), 0, Math.PI*2); ctx.fill(); const bw = (e.isBoss ? 80 : 40); ctx.fillStyle = '#1e293b'; ctx.fillRect(e.x-bw/2, e.y-(e.isBoss?65:30), bw, 5); ctx.fillStyle = '#ff003c'; ctx.fillRect(e.x-bw/2, e.y-(e.isBoss?65:30), (e.hp/e.maxHp)*bw, 5); if (e.slowFactor < 1) e.slowFactor += 0.005;
+                const e = enemies[i]; 
+                if (e.frozen > 0) e.frozen--; 
+                else { 
+                    const wall = gameState.towers.find(t => t.type === 'wall' && t.disabledTimer <= 0 && Math.hypot(t.x-e.x, t.y-e.y) < 40); 
+                    if (wall) { 
+                        wall.currentHp -= (e.isBoss ? 2 : 0.5); e.hp -= (wall.currentDmg / 40); 
+                        if (e.hp <= 0) { handleKill(e, i); continue; } 
+                    } else { 
+                        const tar = wps[e.wp+1], dist = Math.hypot(tar.x-e.x, tar.y-e.y); 
+                        e.x += (tar.x-e.x)/dist * e.baseSpd * e.slowFactor; 
+                        e.y += (tar.y-e.y)/dist * e.baseSpd * e.slowFactor; 
+                        
+                        // Kỹ năng Boss Speed Stuner
+                        if(e.isStunner) {
+                            if(++e.stunCooldown >= 180) { // Mỗi 3 giây
+                                const availableUnits = gameState.towers.filter(t => t.disabledTimer <= 0);
+                                if(availableUnits.length > 0) {
+                                    const randomUnit = availableUnits[Math.floor(Math.random() * availableUnits.length)];
+                                    randomUnit.disabledTimer = 300; // 5 giây (60fps * 5)
+                                    // Bắn tia stun
+                                    ctx.strokeStyle = '#ff003c'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(e.x, e.y); ctx.lineTo(randomUnit.x, randomUnit.y); ctx.stroke();
+                                }
+                                e.stunCooldown = 0;
+                            }
+                        }
+
+                        if (dist < 5 && ++e.wp >= wps.length-1) { 
+                            gameState.health -= (e.isBoss ? 40 : 10); enemies.splice(i,1); updateUI(); continue; 
+                        } 
+                    } 
+                }
+                
+                ctx.fillStyle = e.frozen > 0 ? '#00f2ff' : (e.isBoss ? (e.isStunner ? '#ffffff' : '#fde047') : '#ff003c'); 
+                ctx.beginPath(); ctx.arc(e.x, e.y, (e.isBoss ? 35 : 18), 0, Math.PI*2); ctx.fill(); 
+                if(e.isStunner) { ctx.strokeStyle = '#ff003c'; ctx.lineWidth = 3; ctx.stroke(); }
+
+                const bw = (e.isBoss ? 80 : 40); 
+                ctx.fillStyle = '#1e293b'; ctx.fillRect(e.x-bw/2, e.y-(e.isBoss?65:30), bw, 5); 
+                ctx.fillStyle = '#ff003c'; ctx.fillRect(e.x-bw/2, e.y-(e.isBoss?65:30), (e.hp/e.maxHp)*bw, 5); 
+                if (e.slowFactor < 1) e.slowFactor += 0.005;
             }
             
-            for(let i=projectiles.length-1; i>=0; i--) { const p = projectiles[i], d = Math.hypot(p.target.x-p.x, p.target.y-p.y); if (d < 15 || !enemies.includes(p.target)) { if (enemies.includes(p.target)) { p.target.hp -= p.dmg; if (p.isFreeze) { p.target.slowFactor = 0.4; if (p.level === 3) p.target.frozen = 120; } if (p.type.startsWith('boom')) { const rad = p.type === 'boom_pro' ? 120 : 90; enemies.forEach(ne => { if(Math.hypot(ne.x-p.x, ne.y-p.y) < rad) ne.hp -= p.dmg*0.4; }); } if (p.target.hp <= 0) handleKill(p.target); } projectiles.splice(i,1); continue; } p.x += (p.target.x-p.x)/d * p.spd; p.y += (p.target.y-p.y)/d * p.spd; ctx.fillStyle = p.color; ctx.beginPath(); ctx.arc(p.x, p.y, 8, 0, Math.PI*2); ctx.fill(); }
+            for(let i=projectiles.length-1; i>=0; i--) { 
+                const p = projectiles[i], d = Math.hypot(p.target.x-p.x, p.target.y-p.y); 
+                if (d < 15 || !enemies.includes(p.target)) { 
+                    if (enemies.includes(p.target)) { 
+                        p.target.hp -= p.dmg; 
+                        if (p.isFreeze) { p.target.slowFactor = 0.4; if (p.level === 3) p.target.frozen = 120; } 
+                        if (p.type.startsWith('boom')) { 
+                            const rad = p.type === 'boom_pro' ? 120 : 90; 
+                            enemies.forEach(ne => { if(Math.hypot(ne.x-p.x, ne.y-p.y) < rad) ne.hp -= p.dmg*0.4; }); 
+                        } 
+                        if (p.target.hp <= 0) handleKill(p.target); 
+                    } projectiles.splice(i,1); continue; 
+                } 
+                p.x += (p.target.x-p.x)/d * p.spd; p.y += (p.target.y-p.y)/d * p.spd; 
+                ctx.fillStyle = p.color; ctx.beginPath(); ctx.arc(p.x, p.y, 8, 0, Math.PI*2); ctx.fill(); 
+            }
             requestAnimationFrame(gameLoop);
         }
 
@@ -713,27 +807,40 @@
             updateUI(); 
 
             const isEasy = gameState.difficulty === 'easy';
-            if (isEasy && gameState.wave === 17) showDanger("DANGER!!!<br>FINAL BOSS");
-            else if (!isEasy && gameState.wave === 30) showDanger("DANGER!!!<br>FINAL BOSS");
-            else if (gameState.wave % 5 === 0) showDanger("DANGER!!!<br>ELITE SWARM");
+            const wave = gameState.wave;
 
-            let c = 0, total = 8 + gameState.wave * 2; 
+            if (isEasy && wave === 17) showDanger("DANGER!!!<br>FINAL BOSS");
+            else if (!isEasy && wave === 27) showDanger("DANGER!!!<br>DUAL BOSS DETECTED");
+            else if (wave % 5 === 0) showDanger("DANGER!!!<br>ELITE SWARM");
+
+            let c = 0, total = 8 + wave * 2; 
             const wps = mapWays[selectedMapIdx];
-            let bossHp = 0;
-            if (isEasy && gameState.wave === 17) bossHp = 5000;
-            else if (!isEasy && gameState.wave === 30) bossHp = 45000;
-
-            const isBoss = (gameState.wave % 5 === 0) || (isEasy && gameState.wave === 17) || (!isEasy && gameState.wave === 30);
+            
+            const isBossWave = (wave % 5 === 0) || (isEasy && wave === 17) || (!isEasy && wave === 27) || (!isEasy && wave === 30);
 
             const itv = setInterval(() => { 
                 if (!gameActive) { clearInterval(itv); return; } 
-                const hp = bossHp > 0 ? bossHp : (isBoss ? 2000 : 80) + (gameState.wave * (isBoss ? 1500 : 100)); 
+                
+                let hp = (isBossWave ? 2000 : 80) + (wave * (isBossWave ? 1500 : 100));
+                let bossType = "normal";
+                
+                if(!isEasy && wave === 27) {
+                    if(c === 0) { hp = 500000; bossType = "main"; }
+                    else if(c === 1) { hp = 100000; bossType = "stunner"; }
+                } else if(isEasy && wave === 17) {
+                    hp = 5000; bossType = "main";
+                }
+
                 enemies.push({ 
                     x:wps[0].x, y:wps[0].y, hp, maxHp:hp, 
-                    baseSpd: (isBoss ? 0.6 : 1.2) + (gameState.wave*0.05), 
-                    wp:0, isBoss, frozen:0, slowFactor:1 
+                    baseSpd: (bossType === "stunner" ? 4.8 : (isBossWave ? 0.6 : 1.2) + (wave*0.05)), 
+                    wp:0, isBoss: isBossWave || bossType !== "normal", 
+                    isStunner: bossType === "stunner", stunCooldown: 0,
+                    frozen:0, slowFactor:1 
                 }); 
-                if (++c >= (isBoss ? 1 : total)) clearInterval(itv); 
+
+                const spawnLimit = (!isEasy && wave === 27) ? 2 : (isBossWave ? 1 : total);
+                if (++c >= spawnLimit) clearInterval(itv); 
             }, 800);
         };
 
@@ -741,24 +848,30 @@
 
         function openUpgrade(tower, sx, sy) {
             const menu = document.getElementById('upgradeMenu'); document.getElementById('unitName').innerText = tower.name;
+            const maxLvl = tower.maxLevel || 3;
             let stats = tower.type === 'wall' ? `Reflect: ${tower.currentDmg} | HP: ${Math.floor(tower.currentHp)}` : `Dmg: ${tower.currentDmg} | Spd: ${(tower.currentSpd/60).toFixed(1)}s`;
-            document.getElementById('unitStats').innerText = stats; document.getElementById('upgradeLevel').innerText = `Upgrades: ${tower.level}/3`;
+            document.getElementById('unitStats').innerText = stats; document.getElementById('upgradeLevel').innerText = `Upgrades: ${tower.level}/${maxLvl}`;
             const sellVal = Math.floor(tower.totalInvested * 0.6); document.getElementById('sellValue').innerText = `$${sellVal}`;
             const upBtn = document.getElementById('upgradeBtn');
-            if (tower.level >= 3) { upBtn.innerText = "MAX POWER"; upBtn.onclick = null; }
+            
+            if (tower.level >= maxLvl) { upBtn.innerText = "MAX POWER"; upBtn.onclick = null; }
             else {
-                upBtn.innerText = `UPGRADE ($${tower.upgradeCost})`;
+                // Logic giá nâng cấp đặc biệt cho Electric
+                let currentUpgradeCost = tower.upgradeCost;
+                if(tower.type === 'electric' && tower.level === 4) currentUpgradeCost = 5000;
+
+                upBtn.innerText = `UPGRADE ($${currentUpgradeCost})`;
                 upBtn.onclick = () => { 
-                    if (gameState.money >= tower.upgradeCost) { 
-                        gameState.money -= tower.upgradeCost; 
+                    if (gameState.money >= currentUpgradeCost) { 
+                        gameState.money -= currentUpgradeCost; 
                         tower.level++; 
                         if (tower.type !== 'wall') { 
-                            tower.currentDmg = Math.floor(tower.currentDmg + (tower.maxDmg - tower.dmg)/3); 
+                            tower.currentDmg = Math.floor(tower.currentDmg + (tower.maxDmg - tower.dmg)/maxLvl); 
                             if (!tower.isElectric) tower.currentSpd = Math.max(tower.maxSpd, tower.currentSpd - (tower.spd - tower.maxSpd)/3); 
                             tower.range += 40; 
                         } else { tower.currentMaxHp += 200; tower.currentHp += 200; } 
-                        tower.totalInvested += tower.upgradeCost; 
-                        tower.upgradeCost = Math.floor(tower.upgradeCost * 1.5); 
+                        tower.totalInvested += currentUpgradeCost; 
+                        tower.upgradeCost = Math.floor(currentUpgradeCost * 1.5); 
                         updateUI(); 
                         openUpgrade(tower, sx, sy); 
                     } else showAlert("INSUFFICIENT COINS", false);
