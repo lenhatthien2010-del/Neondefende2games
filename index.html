@@ -686,12 +686,23 @@
         import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, doc, setDoc, getDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-        const firebaseConfig = JSON.parse(__firebase_config);
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-cobac';
-        
-        const app = initializeApp(firebaseConfig);
-        const auth = getAuth(app);
-        const db = getFirestore(app);
+        // --- BẢN VÁ LỖI CHO GITHUB PAGES ---
+        let isUsingFirebase = false;
+        let app, auth, db, appId;
+
+        try {
+            if (typeof __firebase_config !== 'undefined') {
+                const firebaseConfig = typeof __firebase_config === 'string' ? JSON.parse(__firebase_config) : __firebase_config;
+                appId = typeof __app_id !== 'undefined' ? __app_id : 'default-cobac';
+                app = initializeApp(firebaseConfig);
+                auth = getAuth(app);
+                db = getFirestore(app);
+                isUsingFirebase = true;
+            }
+        } catch(e) {
+            console.warn("Đang chạy trên môi trường không có cấu hình Firebase (Github). Tự động dùng hệ thống LocalStorage.");
+        }
+        // ------------------------------------
 
         const RARITIES = {
             GODLY:     { label: 'GODLY', color: '#eab308', priority: 7 },
@@ -776,7 +787,7 @@
             const text = document.getElementById('sync-text');
             if(status === 'connected') {
                 dot.className = "w-2 h-2 rounded-full bg-green-500 shadow-[0_0_5px_#22c55e]";
-                text.innerText = "ĐÃ ĐỒNG BỘ CLOUD";
+                text.innerText = isUsingFirebase ? "ĐÃ ĐỒNG BỘ CLOUD" : "ĐÃ LƯU MÁY BẢN ĐỊA";
             } else if (status === 'syncing') {
                 dot.className = "w-2 h-2 rounded-full bg-yellow-500 animate-pulse";
                 text.innerText = "ĐANG LƯU...";
@@ -790,11 +801,17 @@
             if(!currentUser) return;
             updateSyncUI('syncing');
             try {
-                const userDocRef = doc(db, 'artifacts', appId, 'users', currentUser.uid, 'profile', 'gameData');
-                await setDoc(userDocRef, { 
+                const dataToSave = { 
                     inventory, skills, balance, usedCodes, lastPackBuyTimes, autoSellSettings,
                     lastUpdate: new Date().toISOString()
-                }, { merge: true });
+                };
+
+                if (isUsingFirebase) {
+                    const userDocRef = doc(db, 'artifacts', appId, 'users', currentUser.uid, 'profile', 'gameData');
+                    await setDoc(userDocRef, dataToSave, { merge: true });
+                } else {
+                    localStorage.setItem('legacy_collection_save_v2', JSON.stringify(dataToSave));
+                }
                 updateSyncUI('connected');
             } catch (e) {
                 console.error("Save failed", e);
@@ -1450,10 +1467,19 @@
                 document.getElementById('user-id-display').innerText = `UID: ${user.uid}`;
                 
                 let cloudData = null;
-                try {
-                    const snap = await getDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'profile', 'gameData'));
-                    if(snap.exists()) cloudData = snap.data();
-                } catch (e) { console.error("Cloud fetch error", e); }
+                
+                // LOAD DỮ LIỆU
+                if (isUsingFirebase) {
+                    try {
+                        const snap = await getDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'profile', 'gameData'));
+                        if(snap.exists()) cloudData = snap.data();
+                    } catch (e) { console.error("Cloud fetch error", e); }
+                } else {
+                    const savedLocal = localStorage.getItem('legacy_collection_save_v2');
+                    if(savedLocal) {
+                        try { cloudData = JSON.parse(savedLocal); } catch(e) {}
+                    }
+                }
 
                 if(cloudData) {
                     inventory = cloudData.inventory || [];
@@ -1474,19 +1500,31 @@
                 }, 500);
             };
 
-            if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-                await signInWithCustomToken(auth, __initial_auth_token);
+            // AUTO-FALLBACK KHI KHỞI TẠO GAME
+            if (isUsingFirebase) {
+                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                    await signInWithCustomToken(auth, __initial_auth_token);
+                } else {
+                    await signInAnonymously(auth);
+                }
+                onAuthStateChanged(auth, (u) => { if(u) setupUser(u); });
             } else {
-                await signInAnonymously(auth);
+                // Giả lập User ID cho LocalStorage
+                setTimeout(() => {
+                    let localUid = localStorage.getItem('legacy_local_uid');
+                    if (!localUid) {
+                        localUid = 'LOCAL-' + Math.random().toString(36).substr(2, 9).toUpperCase();
+                        localStorage.setItem('legacy_local_uid', localUid);
+                    }
+                    setupUser({ uid: localUid });
+                }, 600);
             }
-            onAuthStateChanged(auth, (u) => { if(u) setupUser(u); });
         };
 
         window.onload = initGame;
     </script>
 </body>
 </html>
-
 
 ```
 
