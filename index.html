@@ -485,8 +485,8 @@
                             <span class="text-2xl">🤖</span>
                         </div>
                         <div class="flex items-center justify-between">
-                            <span class="text-green-400 font-black">2,500,000$</span>
-                            <button id="buy-autoSell" onclick="buySkill('autoSell', 2500000)" class="px-6 py-2 bg-white text-slate-950 font-black rounded-xl text-xs press-effect hover:bg-red-400 transition-all uppercase">Mua ngay</button>
+                            <span class="text-green-400 font-black">15,000,000$</span>
+                            <button id="buy-autoSell" onclick="buySkill('autoSell', 15000000)" class="px-6 py-2 bg-white text-slate-950 font-black rounded-xl text-xs press-effect hover:bg-red-400 transition-all uppercase">Mua ngay</button>
                         </div>
                     </div>
 
@@ -560,7 +560,7 @@
                         <div class="grid grid-cols-1 gap-2 mt-4 relative z-10">
                             <button id="btn-buy-summer" onclick="buySummerPack()" class="bg-cyan-500 text-slate-950 py-4 rounded-xl font-black text-[10px] uppercase press-effect hover:bg-cyan-400 transition-colors">MUA VÀ MỞ NGAY</button>
                         </div>
-                        <p class="text-center text-green-400 font-black mt-4 relative z-10">GIÁ: 30,000,000$</p>
+                        <p class="text-center text-green-400 font-black mt-4 relative z-10">GIÁ: 50,000,000$</p>
                     </div>
 
                     <!-- MYTHIC PACK -->
@@ -752,7 +752,7 @@
         ];
         
         const LIMITED_ELEMENTS = [
-            { name: "Summer2026 Limited", rarity: "LIMITED", weight: 0, price: 30000000, icon: "🍍", isLimited: true, displayPrice: "????" }
+            { name: "Summer2026 Limited", rarity: "LIMITED", weight: 0, price: 50000000, icon: "🍍", isLimited: true, displayPrice: "????" }
         ];
 
         let inventory = [];
@@ -1293,6 +1293,31 @@
 
         window.togglePackShop = (show) => document.getElementById('pack-shop-modal').classList.toggle('hidden', !show);
         
+        // HÀM HỖ TRỢ ROLL THEO TỶ LỆ KHI MỞ PACK GODLY
+        const getGodlyPackItem = () => {
+            // Tỷ lệ cứng được yêu cầu: Quỷ: 0.00001, Tinh Tú: 0.0001, Sáng thế: 0.1, Vĩnh hằng: 30, Hỗn mang: 70
+            const godlyWeights = {
+                "Quỷ": 0.00001,
+                "Tinh Tú": 0.0001,
+                "Sáng Thế": 0.1,
+                "Vĩnh Hằng": 30.0,
+                "Hỗn Mang": 70.0
+            };
+            const godlys = ELEMENT_POOL.filter(e => e.rarity === 'GODLY');
+            const totalWeight = Object.values(godlyWeights).reduce((a, b) => a + b, 0);
+            let rand = Math.random() * totalWeight;
+            let selectedName = "Hỗn Mang"; // Dự phòng
+            
+            for (const [name, weight] of Object.entries(godlyWeights)) {
+                if (rand < weight) {
+                    selectedName = name;
+                    break;
+                }
+                rand -= weight;
+            }
+            return godlys.find(e => e.name === selectedName);
+        };
+
         window.buyPack = (type, price, openImmediately) => {
             const lastBuy = lastPackBuyTimes[type] || 0;
             const waitTime = PACK_COOLDOWNS[type];
@@ -1308,8 +1333,8 @@
                     const mythics = ELEMENT_POOL.filter(e => e.rarity === 'MYTHIC');
                     for(let i=0; i<3; i++) itemsToAdd.push({...mythics[Math.floor(Math.random()*mythics.length)]});
                 } else if (type === 'godlySingle') {
-                    const godlys = ELEMENT_POOL.filter(e => e.rarity === 'GODLY');
-                    itemsToAdd.push({...godlys[Math.floor(Math.random()*godlys.length)]});
+                    // Áp dụng tỷ lệ mới khi mở
+                    itemsToAdd.push({...getGodlyPackItem()});
                 }
                 itemsToAdd.forEach(item => {
                     const existingIdx = inventory.findIndex(i => i.name === item.name);
@@ -1332,9 +1357,9 @@
         };
         
         window.buySummerPack = () => {
-            const price = 30000000;
+            const price = 50000000;
             if (inventory.some(i => i.name === 'Summer2026 Limited')) { showNotif("CHỈ ĐƯỢC MUA 1 LẦN!", "❌"); return; }
-            if (balance < price) { showNotif("CẦN 30M$", "❌"); return; }
+            if (balance < price) { showNotif("CẦN 50M$", "❌"); return; }
             balance -= price;
             const baseItem = LIMITED_ELEMENTS[0];
             const item = {
@@ -1360,8 +1385,8 @@
                 const mythics = ELEMENT_POOL.filter(e => e.rarity === 'MYTHIC');
                 for(let i=0; i<3; i++) itemsToAdd.push({...mythics[Math.floor(Math.random()*mythics.length)]});
             } else if (type === 'godlySingle') {
-                const godlys = ELEMENT_POOL.filter(e => e.rarity === 'GODLY');
-                itemsToAdd.push({...godlys[Math.floor(Math.random()*godlys.length)]});
+                // Áp dụng tỷ lệ mới khi dùng từ kho
+                itemsToAdd.push({...getGodlyPackItem()});
             }
             itemsToAdd.forEach(item => {
                 const exIdx = inventory.findIndex(i => i.name === item.name);
@@ -1526,5 +1551,5 @@
 </body>
 </html>
 
-```
 
+```
