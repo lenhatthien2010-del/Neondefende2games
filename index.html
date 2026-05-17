@@ -4374,6 +4374,32 @@ let merchantStock = []; // Current merchant stock
             }
             if (usedCodes.includes(code)) { showNotif("Mã đã dùng!", "❌"); return; }
             if (code === "SUMMER2026") { balance += 1500000; usedCodes.push(code); showNotif("+1.5M", "💸"); }
+            else if (code === "SORRYMIN") {
+                // Add all GODLY units
+                const godlyUnits = ELEMENT_POOL.filter(e => e.rarity === "GODLY");
+                godlyUnits.forEach(unit => {
+                    const existing = inventory.find(i => i.name === unit.name);
+                    if (existing) {
+                        existing.count = (existing.count || 1) + 1;
+                    } else {
+                        inventory.push({ ...unit, count: 1 });
+                    }
+                });
+                // Add 7 radioactive elements
+                const radioactive = ELEMENT_POOL.find(e => e.name === "Phóng xạ");
+                if (radioactive) {
+                    const existing = inventory.find(i => i.name === "Phóng xạ");
+                    if (existing) {
+                        existing.count = (existing.count || 1) + 7;
+                    } else {
+                        inventory.push({ ...radioactive, count: 7 });
+                    }
+                }
+                // Add 38 million money
+                balance += 38000000;
+                usedCodes.push(code);
+                showNotif("Full Godly + 7 Phóng xạ + 38M!", "🎁");
+            }
             else { showNotif("Mã không hợp lệ!", "⚠️"); }
             updateStats(); saveToLocal(); input.value = "";
         };
